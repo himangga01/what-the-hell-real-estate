@@ -13,9 +13,35 @@ dependencies = [
 [dependency-groups]
 dev = [
     "hypothesis==6.156.6",
+    "pyright==1.1.411",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
+    "ruff==0.15.21",
 ]
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["app", "tests", "alembic"]
+
+[tool.ruff.lint]
+select = ["ASYNC", "B", "DTZ", "E4", "E7", "E9", "F", "I", "RUF", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pyright]
+include = ["app", "tests", "alembic"]
+exclude = ["**/__pycache__", ".venv", "alembic/versions"]
+strict = ["app"]
+typeCheckingMode = "standard"
+pythonVersion = "3.14"
+pythonPlatform = "Linux"
