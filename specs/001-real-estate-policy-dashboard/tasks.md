@@ -44,7 +44,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [x] T007 `backend/pyproject.toml`에 Python 3.14, FastAPI, Pydantic, SQLAlchemy, Alembic, psycopg와 pytest 개발 의존성을 고정한다.
 - [x] T008 [P] `frontend/package.json`과 `frontend/vite.config.ts`에 React 19.2, TypeScript, Vite 8.1, Tailwind CSS 4.3, Vitest와 Playwright를 구성한다.
 - [x] T009 [P] PostgreSQL 18, PostGIS와 pgvector를 포함한 로컬 DB를 `infra/docker-compose.yml`과 `infra/db/init/001-extensions.sql`에 정의한다.
-- [ ] T010 [P] 비밀값 없이 설정 계약과 fixture 기본값을 `backend/.env.example`과 `frontend/.env.example`에 작성한다.
+- [x] T010 [P] 비밀값 없이 설정 계약과 fixture 기본값을 `backend/.env.example`과 `frontend/.env.example`에 작성한다.
 - [ ] T011 [P] Ruff·Pyright·ESLint·Prettier 설정을 `backend/pyproject.toml`, `frontend/eslint.config.js`, `frontend/tsconfig.json`에 구성한다.
 - [ ] T012 [P] 잠금 파일 기반 설치, Ruff·Pyright·ESLint·타입 검사·빌드·백엔드·프런트·계약·골든 테스트와 공식 OpenAPI·JSON Schema 2020-12 검증을 실행하는 CI를 `.github/workflows/ci.yml`에 추가한다.
 - [ ] T013 Docker 또는 승인된 호환 런타임을 포함한 사전 요구사항, 개발·테스트·fixture 적재 명령과 현재 지원 범위를 `README.md`에 한국어 우선, English AI Context 순서로 기록한다.
