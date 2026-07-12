@@ -1,0 +1,388 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  repository-preflight:
+    name: Repository preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: 0.11.28
+          python-version: 3.14.3
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14.3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.14.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify runtime versions
+        run: |
+          uv run --python 3.14.3 --no-project python --version | grep -F 'Python 3.14.3'
+          uv --version | grep -F 'uv 0.11.28'
+          node --version | grep -F 'v24.14.1'
+
+      - name: Verify repository hygiene
+        run: pwsh -NoProfile -File scripts/verify/repository-hygiene.ps1
+
+      - name: Verify clean reproducible installations
+        run: pwsh -NoProfile -File scripts/verify/reproducible-install.ps1
+
+      - name: Validate Compose configuration
+        working-directory: infra
+        run: docker compose config --quiet
+
+      - name: Install locked schema tooling
+        run: uv sync --project backend --locked --all-groups --python 3.14.3 --no-python-downloads
+
+      - name: Parse workflow as strict YAML 1.2
+        run: |
+          uv run --project backend --locked --no-sync python - <<'PY'
+          from pathlib import Path
+
+          from ruamel.yaml import YAML
+
+          workflow_path = Path('.github/workflows/ci.yml')
+          yaml = YAML(typ='safe', pure=True)
+          yaml.version = (1, 2)
+          yaml.allow_duplicate_keys = False
+          workflow = yaml.load(workflow_path)
+          if not isinstance(workflow, dict):
+              raise SystemExit(f'{workflow_path} must contain one YAML mapping')
+          PY
+
+      - name: Validate GitHub Actions workflow schema
+        run: >-
+          uv run --project backend --locked --no-sync check-jsonschema
+          --builtin-schema vendor.github-workflows .github/workflows/ci.yml
+
+      - name: Require timeouts on every job
+        run: >-
+          uv run --project backend --locked --no-sync check-jsonschema
+          --builtin-schema custom.github-workflows-require-timeout .github/workflows/ci.yml
+
+  backend-quality:
+    name: Backend quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: 0.11.28
+          python-version: 3.14.3
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14.3
+
+      - name: Install locked backend dependencies
+        run: uv sync --project backend --locked --all-groups --python 3.14.3 --no-python-downloads
+
+      - name: Run Ruff lint
+        working-directory: backend
+        run: uv run --locked --no-sync ruff check .
+
+      - name: Check Ruff formatting
+        working-directory: backend
+        run: uv run --locked --no-sync ruff format --check .
+
+      - name: Run Pyright
+        working-directory: backend
+        run: uv run --locked --no-sync pyright
+
+  design-contracts:
+    name: Design contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: 0.11.28
+          python-version: 3.14.3
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14.3
+
+      - name: Install locked backend dependencies
+        run: uv sync --project backend --locked --all-groups --python 3.14.3 --no-python-downloads
+
+      - name: Validate OpenAPI 3.1 contract against the official schema
+        run: >-
+          uv run --project backend --locked --no-sync check-jsonschema
+          --no-cache
+          --schemafile https://spec.openapis.org/oas/3.1/schema-base/2025-11-23
+          specs/001-real-estate-policy-dashboard/contracts/openapi.yaml
+
+      - name: Validate rule schema against its declared metaschema
+        run: >-
+          uv run --project backend --locked --no-sync check-jsonschema --check-metaschema
+          specs/001-real-estate-policy-dashboard/contracts/rule-definition.schema.json
+
+      - name: Detect design contract tests
+        id: contract-tests
+        run: |
+          test_root='backend/tests/contract'
+          test_path='backend/tests/contract/test_design_contracts.py'
+          if [[ ! -d "$test_root" ]]; then
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Contract tests pending::${test_root} does not exist yet"
+          elif [[ ! -f "$test_path" ]]; then
+            echo "::error title=Contract tests missing::${test_root} exists but ${test_path} is missing"
+            exit 1
+          else
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run design contract tests
+        if: ${{ steps.contract-tests.outputs.present == 'true' }}
+        run: >-
+          uv run --project backend --locked --no-sync pytest
+          backend/tests/contract/test_design_contracts.py
+
+  backend-tests:
+    name: Backend and golden tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DATABASE_URL: postgresql+psycopg://app:app@127.0.0.1:5432/real_estate
+      POSTGRES_DB: real_estate
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: 0.11.28
+          python-version: 3.14.3
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14.3
+
+      - name: Install locked backend dependencies
+        run: uv sync --project backend --locked --all-groups --python 3.14.3 --no-python-downloads
+
+      - name: Build and start the database
+        working-directory: infra
+        run: docker compose up --detach --build --wait db
+
+      - name: Detect backend tests
+        id: backend-tests
+        run: |
+          test_root='backend/tests'
+          if [[ ! -d "$test_root" ]]; then
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Backend tests pending::${test_root} does not exist yet"
+          elif find "$test_root" -type f \( -name 'test_*.py' -o -name '*_test.py' \) \
+            ! -path 'backend/tests/golden/*' -print -quit | grep -q .; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "::error title=Backend tests empty::${test_root} exists but has no non-golden pytest files"
+            exit 1
+          fi
+
+      - name: Run backend tests
+        if: ${{ steps.backend-tests.outputs.present == 'true' }}
+        run: >-
+          uv run --project backend --locked --no-sync pytest backend/tests
+          --ignore=backend/tests/golden
+
+      - name: Detect golden tests
+        id: golden-tests
+        run: |
+          test_root='backend/tests/golden'
+          if [[ ! -d "$test_root" ]]; then
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Golden tests pending::${test_root} does not exist yet"
+          elif find "$test_root" -type f \( -name 'test_*.py' -o -name '*_test.py' \) \
+            -print -quit | grep -q .; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "::error title=Golden tests empty::${test_root} exists but has no pytest files"
+            exit 1
+          fi
+
+      - name: Run golden tests
+        if: ${{ steps.golden-tests.outputs.present == 'true' }}
+        run: uv run --project backend --locked --no-sync pytest backend/tests/golden
+
+      - name: Show database logs after failure
+        if: ${{ failure() }}
+        working-directory: infra
+        run: docker compose logs --no-color db
+
+      - name: Stop database and remove volumes
+        if: ${{ always() }}
+        working-directory: infra
+        run: docker compose down --volumes --remove-orphans
+
+  frontend:
+    name: Frontend quality and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.14.1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run ESLint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Check Prettier formatting
+        working-directory: frontend
+        run: npm run format:check
+
+      - name: Run TypeScript checks
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Detect Vite application entry point
+        id: frontend-app
+        run: |
+          if [[ -f frontend/index.html ]]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo '::notice title=Frontend build pending::frontend/index.html does not exist yet'
+          fi
+
+      - name: Build frontend
+        if: ${{ steps.frontend-app.outputs.present == 'true' }}
+        working-directory: frontend
+        run: npm run build
+
+      - name: Detect Vitest tests
+        id: unit-tests
+        run: |
+          test_root='frontend/tests/unit'
+          unit_test_path="$(
+            find frontend -type f \( -name '*.test.*' -o -name '*.spec.*' \) \
+              ! -path 'frontend/node_modules/*' ! -path 'frontend/tests/e2e/*' \
+              -print -quit
+          )"
+          if [[ -n "$unit_test_path" ]]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          elif [[ -d "$test_root" ]]; then
+            echo "::error title=Unit tests empty::${test_root} exists but has no Vitest test files"
+            exit 1
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Unit tests pending::${test_root} does not exist yet"
+          fi
+
+      - name: Run Vitest
+        if: ${{ steps.unit-tests.outputs.present == 'true' }}
+        working-directory: frontend
+        run: npm run test:unit -- --exclude 'tests/e2e/**'
+
+      - name: Detect Playwright tests
+        id: e2e-tests
+        run: |
+          test_root='frontend/tests/e2e'
+          if [[ ! -d "$test_root" ]]; then
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=E2E tests pending::${test_root} does not exist yet"
+          elif find "$test_root" -type f -name '*.spec.*' -print -quit | grep -q .; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "::error title=E2E tests empty::${test_root} exists but has no Playwright specs"
+            exit 1
+          fi
+
+      - name: Install Chromium for Playwright
+        if: ${{ steps.e2e-tests.outputs.present == 'true' }}
+        working-directory: frontend
+        run: npm exec -- playwright install --with-deps chromium
+
+      - name: Run Playwright
+        if: ${{ steps.e2e-tests.outputs.present == 'true' }}
+        working-directory: frontend
+        run: npm run test:e2e
+
+  ci-gate:
+    name: CI gate
+    if: ${{ always() }}
+    permissions: {}
+    needs:
+      - repository-preflight
+      - backend-quality
+      - design-contracts
+      - backend-tests
+      - frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail when an upstream job did not succeed
+        if: >-
+          ${{ contains(needs.*.result, 'failure') ||
+          contains(needs.*.result, 'cancelled') ||
+          contains(needs.*.result, 'skipped') }}
+        run: |
+          echo 'One or more required CI jobs did not succeed.' >&2
+          exit 1
+
+      - name: Confirm required jobs succeeded
+        run: echo 'All required CI jobs succeeded.'
