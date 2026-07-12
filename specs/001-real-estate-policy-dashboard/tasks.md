@@ -234,7 +234,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 ### 프로젝트 설정 보완 — Phase 2
 
 - [x] T098 프로젝트 설정 명령을 실행하기 전에 비밀값·가상환경·캐시·테스트·빌드 산출물을 제외하는 루트 `.gitignore`와 금지 파일 검사를 `scripts/verify/repository-hygiene.ps1`에 추가한다. (plan: repository hygiene, missing)
-- [ ] T099 T007·T008 이후 Python과 Node 의존성을 `backend/uv.lock`, `frontend/package-lock.json`에 고정하고 잠금 파일만으로 깨끗한 설치를 재현하는 검사를 `scripts/verify/reproducible-install.ps1`에 추가한다. (plan: reproducible setup, missing)
+- [x] T099 T007·T008 이후 Python과 Node 의존성을 `backend/uv.lock`, `frontend/package-lock.json`에 고정하고 잠금 파일만으로 깨끗한 설치를 재현하는 검사를 `scripts/verify/reproducible-install.ps1`에 추가한다. (plan: reproducible setup, missing)
 
 ---
 
