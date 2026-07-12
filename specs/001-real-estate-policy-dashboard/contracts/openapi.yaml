@@ -1,0 +1,1612 @@
+openapi: 3.1.0
+info:
+  title: 대한민국 부동산 정책·세금 분석 API
+  version: 0.1.0
+  description: |
+    선택한 기준일의 현재 정책, 주소별 규제지역, 취득·보유·양도 시나리오와
+    검수된 정부 원문 근거를 제공한다. 결과는 참고용 적용 가능성·개략 추정이며
+    신고용 세액 또는 법률·세무 의견이 아니다.
+  contact:
+    name: 정책 데이터 검수 담당
+servers:
+  - url: http://localhost:8000
+    description: 로컬 개발
+tags:
+  - name: System
+  - name: Policies
+  - name: Areas
+  - name: Analyses
+  - name: Evidence
+  - name: Admin
+paths:
+  /api/v1/health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      summary: API와 게시 데이터 상태 확인
+      responses:
+        "200":
+          description: 정상 또는 데이터 신선도 경고
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/policies/current:
+    get:
+      tags: [Policies]
+      operationId: listCurrentPolicies
+      summary: 기준일에 실제 효력이 있는 게시 정책 조회
+      parameters:
+        - $ref: "#/components/parameters/AsOf"
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/PolicyCategory"
+        - name: region_code
+          in: query
+          description: 선택적 행정구역 코드 필터
+          schema:
+            type: string
+            maxLength: 20
+      responses:
+        "200":
+          description: 현재 정책 목록. 예정·종료 항목은 포함하지 않는다.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [as_of, snapshot, policies]
+                properties:
+                  as_of:
+                    type: string
+                    format: date
+                  snapshot:
+                    $ref: "#/components/schemas/DataSnapshot"
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyCard"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/policies/history:
+    get:
+      tags: [Policies]
+      operationId: listPolicyHistory
+      summary: 최근 10년 정책 사건과 버전 이력 조회
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: category
+          in: query
+          schema:
+            $ref: "#/components/schemas/PolicyCategory"
+        - name: authority
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: verification_status
+          in: query
+          schema:
+            $ref: "#/components/schemas/VerificationStatus"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        "200":
+          description: 발표·공포·시행·유예·해제·종료 사건
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, next_cursor]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyEvent"
+                  next_cursor:
+                    type: [string, "null"]
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/areas/resolve:
+    post:
+      tags: [Areas]
+      operationId: resolveAreaDesignations
+      summary: 주소와 기준일의 규제지역을 제도별로 판정
+      description: |
+        조정대상지역, 투기과열지구, 투기지역, 토지거래허가구역을 합치지 않고
+        각각 반환한다. 필지·도면·거래 조건이 부족하면 불리언을 추정하지 않는다.
+      x-privacy:
+        persistence: none
+        logging: normalized identifiers and raw address are redacted
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AreaResolveRequest"
+      responses:
+        "200":
+          description: 주소 정규화와 제도별 판정
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AreaResolveResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/DataUnavailable"
+
+  /api/v1/analyses:
+    post:
+      tags: [Analyses]
+      operationId: createAnalysis
+      summary: 취득·보유·양도 시나리오 분석
+      description: |
+        하나의 불변 RuleBundle을 고정하여 세목별 파생 사실과 규칙을 평가한다.
+        원시 시나리오는 명시적 저장 기능이 없는 v1에서 영구 저장하지 않는다.
+      x-privacy:
+        persistence: none
+        forbidden_fields: [resident_registration_number, registry_number, household_member_name]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisRequest"
+      responses:
+        "200":
+          description: 결정·개략·누락·공식 확인·미지원 결과
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResult"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          $ref: "#/components/responses/DataUnavailable"
+
+  /api/v1/questions:
+    post:
+      tags: [Evidence]
+      operationId: answerEvidenceQuestion
+      summary: 게시된 정부 원문에 근거한 일반 정책 질의응답
+      description: |
+        규칙 판정을 새로 만들지 않는다. 충분한 검수 근거가 없으면
+        INSUFFICIENT_EVIDENCE로 답변을 중단한다. 개인 적용 여부나 세액 판정
+        질문은 답을 생성하지 않고 ANALYSIS_REQUIRED와 분석 API 경로를 반환한다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionRequest"
+      responses:
+        "200":
+          description: 인용 기반 답변 또는 근거 부족 상태
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/evidence/{evidence_id}:
+    get:
+      tags: [Evidence]
+      operationId: getEvidence
+      summary: 근거 조각과 원문 메타데이터 조회
+      parameters:
+        - name: evidence_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 공개 가능한 검수 근거
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Citation"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/ingestion-runs:
+    post:
+      tags: [Admin]
+      operationId: startIngestionRun
+      summary: 허용된 출처 수집 작업 시작
+      security:
+        - bearerAuth: []
+      x-required-role: curator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [source_registry_ids]
+              properties:
+                source_registry_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  uniqueItems: true
+                  items:
+                    type: string
+                    format: uuid
+                force_recheck:
+                  type: boolean
+                  default: false
+      responses:
+        "202":
+          description: 수집 작업 접수
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestionRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/admin/reviews:
+    get:
+      tags: [Admin]
+      operationId: listReviewQueue
+      summary: 문서·규칙·경계 검수 대기열 조회
+      security:
+        - bearerAuth: []
+      x-required-role: curator
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [SOURCE_CHANGE, POLICY, DESIGNATION, RULE, EVIDENCE]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, REVIEW_PENDING, CONFLICT, REJECTED]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            maxLength: 500
+      responses:
+        "200":
+          description: 검수 대기 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReviewItem"
+                  next_cursor:
+                    type: [string, "null"]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/reviews/{review_item_id}:
+    get:
+      tags: [Admin]
+      operationId: getReviewItem
+      summary: 문서·정책·지정·규칙·근거 검수 상세 조회
+      security:
+        - bearerAuth: []
+      x-required-role: reviewer
+      parameters:
+        - name: review_item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 원문·이전 버전 diff·추출값·근거·골든 영향 상세
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewItemDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/reviews/{review_item_id}/decision:
+    post:
+      tags: [Admin]
+      operationId: decideReviewItem
+      summary: 문서·정책·지정·규칙·근거 승인 또는 반려
+      security:
+        - bearerAuth: []
+      x-required-role: reviewer
+      parameters:
+        - name: review_item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision, reason, expected_content_sha256]
+              properties:
+                decision:
+                  type: string
+                  enum: [APPROVE, REJECT]
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+                expected_content_sha256:
+                  $ref: "#/components/schemas/Sha256"
+      responses:
+        "200":
+          description: 검수 결정 기록
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewDecision"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/admin/rule-bundles/publish:
+    post:
+      tags: [Admin]
+      operationId: publishRuleBundle
+      summary: 검수 규칙 번들 게시
+      description: 골든 사례 실패, 근거 누락, 규칙 충돌이 있으면 409를 반환한다.
+      security:
+        - bearerAuth: []
+      x-required-role: publisher
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [as_of, reason]
+              properties:
+                as_of:
+                  type: string
+                  format: date-time
+                reason:
+                  type: string
+                  minLength: 10
+                  maxLength: 2000
+                expected_previous_bundle_sha256:
+                  oneOf:
+                    - $ref: "#/components/schemas/Sha256"
+                    - type: "null"
+      responses:
+        "201":
+          description: 게시된 불변 규칙 번들
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleBundle"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT의 `roles` claim에 `curator`, `reviewer`, `publisher` 중 필요한 역할이 있어야 한다. 역할 부족은 403이다.
+
+  parameters:
+    AsOf:
+      name: as_of
+      in: query
+      description: Asia/Seoul 기준일. 생략하면 서버의 현재 기준일.
+      schema:
+        type: string
+        format: date
+
+  responses:
+    ValidationError:
+      description: 입력 검증 실패
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    DataUnavailable:
+      description: 필수 게시 데이터 또는 주소 제공자 사용 불가
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: 공개 가능한 리소스 없음
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: 인증 토큰 없음 또는 유효하지 않음
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: 인증됐으나 필요한 JWT 역할 없음
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: 해시 불일치, 규칙 충돌 또는 게시 게이트 실패
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Sha256:
+      type: string
+      pattern: "^sha256:[0-9a-f]{64}$"
+
+    PolicyCategory:
+      type: string
+      enum: [REGULATION, TAX_ACQUISITION, TAX_HOLDING, TAX_DISPOSAL, FINANCE, TRANSACTION]
+
+    VerificationStatus:
+      type: string
+      enum: [VERIFIED, PARTIAL, PENDING_REVIEW]
+
+    ApplicabilityStatus:
+      type: string
+      enum: [APPLIES, DOES_NOT_APPLY, CONDITIONAL, NEEDS_INPUT, REQUIRES_OFFICIAL_CHECK, UNSUPPORTED]
+
+    AnalysisStatus:
+      type: string
+      enum: [DETERMINED, ESTIMATED, NEEDS_INPUT, REQUIRES_OFFICIAL_CHECK, UNSUPPORTED]
+
+    DataSnapshot:
+      type: object
+      additionalProperties: false
+      required: [cutoff_at, last_verified_at, freshness_status, rule_bundle_sha256]
+      properties:
+        cutoff_at:
+          type: string
+          format: date-time
+        last_verified_at:
+          type: string
+          format: date-time
+        freshness_status:
+          type: string
+          enum: [FRESH, STALE, PARTIAL, SOURCE_UNAVAILABLE]
+        rule_bundle_sha256:
+          $ref: "#/components/schemas/Sha256"
+        warnings:
+          type: array
+          items:
+            type: string
+
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, api_version, database, published_bundle, source_freshness]
+      properties:
+        status:
+          type: string
+          enum: [OK, DEGRADED]
+        api_version:
+          type: string
+        database:
+          type: string
+          enum: [READY, UNAVAILABLE]
+        published_bundle:
+          type: string
+          enum: [READY, MISSING]
+        source_freshness:
+          type: string
+          enum: [FRESH, STALE, PARTIAL, SOURCE_UNAVAILABLE]
+
+    SourceReference:
+      type: object
+      additionalProperties: false
+      required: [authority, title, url, source_role, published_at, last_verified_at]
+      properties:
+        authority:
+          type: string
+        title:
+          type: string
+        document_number:
+          type: [string, "null"]
+        url:
+          type: string
+          format: uri
+        source_role:
+          type: string
+          enum: [LEGAL_EFFECT, BOUNDARY, EXPLANATION, STATUS_INDEX, DISCOVERY_ONLY]
+        published_at:
+          type: string
+          format: date-time
+        effective_from:
+          type: [string, "null"]
+          format: date-time
+        last_verified_at:
+          type: string
+          format: date-time
+        content_sha256:
+          oneOf:
+            - $ref: "#/components/schemas/Sha256"
+            - type: "null"
+
+    EvidenceSelector:
+      type: object
+      additionalProperties: false
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [ARTICLE, PAGE, TABLE, PARAGRAPH, TEXT_RANGE]
+        value:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    DecisionSourceReference:
+      type: object
+      additionalProperties: false
+      required:
+        - authority
+        - title
+        - url
+        - source_role
+        - published_at
+        - effective_from
+        - last_verified_at
+        - content_sha256
+        - selector
+        - verification_status
+      properties:
+        authority:
+          type: string
+        title:
+          type: string
+        document_number:
+          type: [string, "null"]
+        url:
+          type: string
+          format: uri
+        source_role:
+          type: string
+          enum: [LEGAL_EFFECT, BOUNDARY]
+        published_at:
+          type: string
+          format: date-time
+        effective_from:
+          type: string
+          format: date-time
+        last_verified_at:
+          type: string
+          format: date-time
+        content_sha256:
+          $ref: "#/components/schemas/Sha256"
+        selector:
+          $ref: "#/components/schemas/EvidenceSelector"
+        verification_status:
+          type: string
+          const: VERIFIED
+
+    PolicyCard:
+      type: object
+      additionalProperties: false
+      required: [id, title, category, effective_from, summary, verification_status, decision_sources, supporting_sources]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          $ref: "#/components/schemas/PolicyCategory"
+        effective_from:
+          type: string
+          format: date-time
+        effective_to:
+          type: [string, "null"]
+          format: date-time
+        summary:
+          type: string
+        affected_regions:
+          type: array
+          items:
+            type: string
+        verification_status:
+          type: string
+          const: VERIFIED
+        decision_sources:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/DecisionSourceReference"
+        supporting_sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceReference"
+
+    PolicyEvent:
+      type: object
+      additionalProperties: false
+      required: [id, event_type, event_at, title, verification_status, source]
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [ANNOUNCED, PROMULGATED, EFFECTIVE, DEFERRED, DESIGNATED, EXTENDED, CORRECTED, LIFTED, EXPIRED, SUPERSEDED]
+        event_at:
+          type: string
+          format: date-time
+        title:
+          type: string
+        summary:
+          type: string
+        verification_status:
+          $ref: "#/components/schemas/VerificationStatus"
+        source:
+          $ref: "#/components/schemas/SourceReference"
+
+    AreaResolveRequest:
+      type: object
+      additionalProperties: false
+      required: [address, as_of]
+      properties:
+        address:
+          type: string
+          minLength: 2
+          maxLength: 300
+        as_of:
+          type: string
+          format: date
+        parcel_number:
+          type: [string, "null"]
+          maxLength: 19
+        subject_type:
+          type: string
+          enum: [DOMESTIC_PERSON, FOREIGN_PERSON, DOMESTIC_CORPORATION, FOREIGN_CORPORATION, UNKNOWN]
+          default: UNKNOWN
+        property_type:
+          type: string
+          enum: [APARTMENT, DETACHED, MULTI_FAMILY, ROW_HOUSE, OFFICETEL, LAND, OTHER, UNKNOWN]
+          default: UNKNOWN
+        land_use_type:
+          type: [string, "null"]
+          enum: [RESIDENTIAL, COMMERCIAL, INDUSTRIAL, GREEN, OTHER, null]
+        area_sqm:
+          type: [number, "null"]
+          exclusiveMinimum: 0
+
+    AddressMatch:
+      type: object
+      additionalProperties: false
+      required: [normalized_address, match_method, quality_status]
+      properties:
+        normalized_address:
+          type: string
+        parcel_number:
+          type: [string, "null"]
+        match_method:
+          type: string
+          enum: [EXACT_PARCEL, ROAD_TO_PARCEL, CENTROID, AMBIGUOUS, NOT_FOUND]
+        quality_status:
+          type: string
+          enum: [OFFICIAL, DERIVED, PARTIAL, CONFLICT]
+        uncertainty_reasons:
+          type: array
+          items:
+            type: string
+
+    DesignationResult:
+      type: object
+      additionalProperties: false
+      required: [designation_type, status, valid_from, rule_ids, citations]
+      properties:
+        designation_type:
+          type: string
+          enum: [ADJUSTMENT_AREA, SPECULATION_OVERHEATED, SPECULATION_AREA, LAND_TRANSACTION_PERMIT]
+        status:
+          $ref: "#/components/schemas/ApplicabilityStatus"
+        valid_from:
+          type: [string, "null"]
+          format: date-time
+        valid_to:
+          type: [string, "null"]
+          format: date-time
+        authority:
+          type: [string, "null"]
+        reasons:
+          type: array
+          items:
+            type: string
+        missing_facts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingFact"
+        official_check:
+          oneOf:
+            - $ref: "#/components/schemas/OfficialCheck"
+            - type: "null"
+        rule_ids:
+          type: array
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    AreaResolveResponse:
+      type: object
+      additionalProperties: false
+      required: [as_of, address_match, designations, snapshot]
+      properties:
+        as_of:
+          type: string
+          format: date
+        address_match:
+          $ref: "#/components/schemas/AddressMatch"
+        designations:
+          $ref: "#/components/schemas/DesignationSet"
+        snapshot:
+          $ref: "#/components/schemas/DataSnapshot"
+
+    DesignationSet:
+      type: object
+      additionalProperties: false
+      required: [adjustment_area, speculation_overheated, speculation_area, land_transaction_permit]
+      properties:
+        adjustment_area:
+          allOf:
+            - $ref: "#/components/schemas/DesignationResult"
+            - properties:
+                designation_type:
+                  const: ADJUSTMENT_AREA
+        speculation_overheated:
+          allOf:
+            - $ref: "#/components/schemas/DesignationResult"
+            - properties:
+                designation_type:
+                  const: SPECULATION_OVERHEATED
+        speculation_area:
+          allOf:
+            - $ref: "#/components/schemas/DesignationResult"
+            - properties:
+                designation_type:
+                  const: SPECULATION_AREA
+        land_transaction_permit:
+          allOf:
+            - $ref: "#/components/schemas/DesignationResult"
+            - properties:
+                designation_type:
+                  const: LAND_TRANSACTION_PERMIT
+
+    AnalysisRequest:
+      type: object
+      additionalProperties: false
+      required: [analysis_as_of, stage, taxpayer, household, properties]
+      properties:
+        analysis_as_of:
+          type: string
+          format: date
+        stage:
+          type: string
+          enum: [ACQUISITION, HOLDING, DISPOSAL]
+        taxpayer:
+          $ref: "#/components/schemas/TaxpayerFacts"
+        household:
+          $ref: "#/components/schemas/HouseholdFacts"
+        properties:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/PropertyInterest"
+        transaction:
+          oneOf:
+            - $ref: "#/components/schemas/TransactionFacts"
+            - type: "null"
+      allOf:
+        - if:
+            properties:
+              stage:
+                enum: [ACQUISITION, DISPOSAL]
+          then:
+            required: [transaction]
+            properties:
+              transaction:
+                $ref: "#/components/schemas/TransactionFacts"
+        - if:
+            properties:
+              stage:
+                const: HOLDING
+          then:
+            properties:
+              transaction:
+                type: "null"
+
+    TaxpayerFacts:
+      type: object
+      additionalProperties: false
+      required: [person_type, residency_status]
+      properties:
+        person_type:
+          type: string
+          enum: [INDIVIDUAL, CORPORATION]
+        residency_status:
+          type: string
+          enum: [KOREAN_RESIDENT, NON_RESIDENT, UNKNOWN]
+        nationality_status:
+          type: string
+          enum: [DOMESTIC, FOREIGN, UNKNOWN]
+        age_on_tax_event:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 130
+
+    HouseholdFacts:
+      type: object
+      additionalProperties: false
+      required: [members]
+      properties:
+        members:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required: [member_key, relationship, valid_from]
+            properties:
+              member_key:
+                type: string
+                pattern: "^[A-Za-z0-9_-]{1,30}$"
+              relationship:
+                type: string
+                enum: [SELF, SPOUSE, ASCENDANT, DESCENDANT, SIBLING, OTHER]
+              valid_from:
+                type: string
+                format: date
+              valid_to:
+                type: [string, "null"]
+                format: date
+        income_records:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/IncomeRecord"
+
+    PropertyInterest:
+      type: object
+      additionalProperties: false
+      required: [property_key, address, property_type, actual_use, history_role, ownership_interests]
+      properties:
+        property_key:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,30}$"
+        address:
+          type: string
+          maxLength: 300
+        parcel_number:
+          type: [string, "null"]
+          maxLength: 19
+        property_type:
+          type: string
+          enum: [APARTMENT, DETACHED, MULTI_FAMILY, ROW_HOUSE, OFFICETEL, PRESALE_RIGHT, OCCUPANCY_RIGHT, LAND, COMMERCIAL, OTHER]
+        actual_use:
+          type: string
+          enum: [RESIDENTIAL, NON_RESIDENTIAL, MIXED, UNKNOWN]
+        history_role:
+          type: string
+          enum: [TARGET, CURRENT_HOLDING, PRIOR_HOLDING, HOUSEHOLD_HISTORICAL]
+        exclusive_area_sqm:
+          type: [number, "null"]
+          exclusiveMinimum: 0
+        ownership_interests:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/OwnershipInterest"
+        official_price_history:
+          type: array
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/AnnualMoneyRecord"
+        tax_assessment_history:
+          type: array
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/TaxAssessmentRecord"
+        acquisition_price_krw:
+          type: [integer, "null"]
+          minimum: 0
+        residence_periods:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberDateRange"
+
+    OwnershipInterest:
+      type: object
+      additionalProperties: false
+      required: [owner_member_key, share, valid_from, acquisition_cause]
+      properties:
+        owner_member_key:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,30}$"
+        share:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1
+        valid_from:
+          type: string
+          format: date
+        valid_to:
+          type: [string, "null"]
+          format: date
+        acquisition_cause:
+          type: string
+          enum: [PURCHASE, INHERITANCE, GIFT, ORIGINAL_ACQUISITION, OTHER]
+        disposition_cause:
+          type: [string, "null"]
+          enum: [SALE, GIFT, INHERITANCE, LOSS, OTHER, null]
+
+    IncomeRecord:
+      type: object
+      additionalProperties: false
+      required: [member_key, year, amount_krw]
+      properties:
+        member_key:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,30}$"
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2200
+        amount_krw:
+          type: integer
+          minimum: 0
+
+    AnnualMoneyRecord:
+      type: object
+      additionalProperties: false
+      required: [year, amount_krw]
+      properties:
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2200
+        amount_krw:
+          type: integer
+          minimum: 0
+
+    TaxAssessmentRecord:
+      type: object
+      additionalProperties: false
+      required: [year, taxable_base_krw, property_tax_krw, comprehensive_holding_tax_krw]
+      properties:
+        year:
+          type: integer
+          minimum: 1900
+          maximum: 2200
+        taxable_base_krw:
+          type: integer
+          minimum: 0
+        property_tax_krw:
+          type: integer
+          minimum: 0
+        comprehensive_holding_tax_krw:
+          type: integer
+          minimum: 0
+
+    TransactionFacts:
+      type: object
+      additionalProperties: false
+      required: [target_property_key, acquisition_cause]
+      properties:
+        target_property_key:
+          type: string
+        acquisition_cause:
+          type: string
+          enum: [PURCHASE, INHERITANCE, GIFT, ORIGINAL_ACQUISITION, OTHER]
+        contract_date:
+          type: [string, "null"]
+          format: date
+        deposit_paid_date:
+          type: [string, "null"]
+          format: date
+        deposit_payment_proven:
+          type: [boolean, "null"]
+        balance_date:
+          type: [string, "null"]
+          format: date
+        registration_date:
+          type: [string, "null"]
+          format: date
+        acquisition_date:
+          type: [string, "null"]
+          format: date
+        transfer_date:
+          type: [string, "null"]
+          format: date
+        transaction_price_krw:
+          type: [integer, "null"]
+          minimum: 0
+        standard_value_krw:
+          type: [integer, "null"]
+          minimum: 0
+        deductible_costs_krw:
+          type: [integer, "null"]
+          minimum: 0
+        land_permit_status:
+          type: string
+          enum: [NOT_REQUIRED, REQUIRED_NOT_APPLIED, APPLIED, APPROVED, REJECTED, UNKNOWN]
+          default: UNKNOWN
+
+    DateRange:
+      type: object
+      additionalProperties: false
+      required: [from]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: [string, "null"]
+          format: date
+
+    MemberDateRange:
+      type: object
+      additionalProperties: false
+      required: [member_key, from]
+      properties:
+        member_key:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{1,30}$"
+        from:
+          type: string
+          format: date
+        to:
+          type: [string, "null"]
+          format: date
+
+    DerivedFact:
+      type: object
+      additionalProperties: false
+      required: [key, value, as_of, rule_id, input_fact_paths]
+      properties:
+        key:
+          type: string
+        value: {}
+        as_of:
+          type: string
+          format: date
+        rule_id:
+          type: string
+        input_fact_paths:
+          type: array
+          items:
+            type: string
+
+    RuleEvaluation:
+      type: object
+      additionalProperties: false
+      required: [rule_id, version, truth_value, disposition, trace_sha256, citations]
+      properties:
+        rule_id:
+          type: string
+        version:
+          type: string
+        truth_value:
+          type: string
+          enum: [TRUE, FALSE, UNKNOWN]
+        disposition:
+          type: string
+          enum: [APPLIED, EXCLUDED, SUPPRESSED, NOT_APPLICABLE, UNRESOLVED]
+        reasons:
+          type: array
+          items:
+            type: string
+        trace_sha256:
+          $ref: "#/components/schemas/Sha256"
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    CalculationLine:
+      type: object
+      additionalProperties: false
+      required: [code, label, amount_krw, kind]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        amount_krw:
+          type: integer
+        kind:
+          type: string
+          enum: [BASE, DEDUCTION, CREDIT, TAX, SURTAX, ROUNDING, EXCLUDED]
+        formula_summary:
+          type: string
+        rule_id:
+          type: string
+
+    MissingFact:
+      type: object
+      additionalProperties: false
+      required: [fact_key, question, impact, reason]
+      properties:
+        fact_key:
+          type: string
+        question:
+          type: string
+        impact:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        reason:
+          type: string
+        allowed_values:
+          type: array
+          items: {}
+
+    OfficialCheck:
+      type: object
+      additionalProperties: false
+      required: [reason_code, authority, action]
+      properties:
+        reason_code:
+          type: string
+        authority:
+          type: string
+        action:
+          type: string
+        url:
+          type: [string, "null"]
+          format: uri
+
+    AnalysisResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - analysis_as_of
+        - normalized_input_sha256
+        - rule_bundle_sha256
+        - engine_version
+        - derived_facts
+        - rule_evaluations
+        - calculation_lines
+        - missing_facts
+        - review_flags
+        - disclaimer
+      properties:
+        status:
+          $ref: "#/components/schemas/AnalysisStatus"
+        analysis_as_of:
+          type: string
+          format: date
+        normalized_input_sha256:
+          $ref: "#/components/schemas/Sha256"
+        rule_bundle_sha256:
+          $ref: "#/components/schemas/Sha256"
+        engine_version:
+          type: string
+        summary:
+          type: string
+        derived_facts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DerivedFact"
+        rule_evaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleEvaluation"
+        calculation_lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalculationLine"
+        estimated_range_krw:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [minimum, maximum]
+              properties:
+                minimum:
+                  type: integer
+                maximum:
+                  type: integer
+            - type: "null"
+        missing_facts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MissingFact"
+        review_flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficialCheck"
+        excluded_components:
+          type: array
+          items:
+            type: string
+        disclaimer:
+          type: string
+
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [evidence_id, authority, title, url, selector, source_role, content_sha256, verified_at]
+      properties:
+        evidence_id:
+          type: string
+          format: uuid
+        authority:
+          type: string
+        title:
+          type: string
+        document_number:
+          type: [string, "null"]
+        url:
+          type: string
+          format: uri
+        selector:
+          $ref: "#/components/schemas/EvidenceSelector"
+        source_role:
+          type: string
+          enum: [LEGAL_EFFECT, BOUNDARY, EXPLANATION, STATUS_INDEX]
+        excerpt:
+          type: [string, "null"]
+        content_sha256:
+          $ref: "#/components/schemas/Sha256"
+        verified_at:
+          type: string
+          format: date-time
+
+    QuestionRequest:
+      type: object
+      additionalProperties: false
+      required: [question, as_of, intent]
+      properties:
+        question:
+          type: string
+          minLength: 2
+          maxLength: 1000
+        as_of:
+          type: string
+          format: date
+        intent:
+          type: string
+          const: GENERAL_POLICY_EXPLANATION
+          description: 개인 적용 여부·세액 판정은 허용하지 않으며 서버도 질문 내용을 다시 분류한다.
+        categories:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/PolicyCategory"
+        authority_filters:
+          type: array
+          items:
+            type: string
+        rule_ids:
+          type: array
+          items:
+            type: string
+
+    QuestionResponse:
+      type: object
+      additionalProperties: false
+      required: [status, as_of, answer, claims, citations, next_checks, analysis_route]
+      properties:
+        status:
+          type: string
+          enum: [ANSWERED, INSUFFICIENT_EVIDENCE, ANALYSIS_REQUIRED]
+        as_of:
+          type: string
+          format: date
+        answer:
+          type: [string, "null"]
+        claims:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerClaim"
+        citations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+        next_checks:
+          type: array
+          items:
+            type: string
+        analysis_route:
+          type: [string, "null"]
+      allOf:
+        - if:
+            properties:
+              status:
+                const: ANSWERED
+          then:
+            properties:
+              answer:
+                type: string
+                minLength: 1
+              claims:
+                minItems: 1
+              citations:
+                minItems: 1
+              analysis_route:
+                type: "null"
+        - if:
+            properties:
+              status:
+                const: INSUFFICIENT_EVIDENCE
+          then:
+            properties:
+              answer:
+                type: "null"
+              claims:
+                maxItems: 0
+              citations:
+                maxItems: 0
+              next_checks:
+                minItems: 1
+              analysis_route:
+                type: "null"
+        - if:
+            properties:
+              status:
+                const: ANALYSIS_REQUIRED
+          then:
+            properties:
+              answer:
+                type: "null"
+              claims:
+                maxItems: 0
+              citations:
+                maxItems: 0
+              next_checks:
+                minItems: 1
+              analysis_route:
+                const: /api/v1/analyses
+
+    AnswerClaim:
+      type: object
+      additionalProperties: false
+      required: [text, citations]
+      properties:
+        text:
+          type: string
+          minLength: 1
+        citations:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    IngestionRun:
+      type: object
+      additionalProperties: false
+      required: [id, status, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, PARTIAL, FAILED, BLOCKED_BY_SOURCE_POLICY]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: [string, "null"]
+          format: date-time
+        source_results:
+          type: array
+          items:
+            type: object
+
+    ReviewItem:
+      type: object
+      additionalProperties: false
+      required: [id, kind, status, title, created_at, blockers]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [SOURCE_CHANGE, POLICY, DESIGNATION, RULE, EVIDENCE]
+        status:
+          type: string
+          enum: [DRAFT, REVIEW_PENDING, CONFLICT, REJECTED]
+        title:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        blockers:
+          type: array
+          items:
+            type: string
+
+    ReviewItemDetail:
+      type: object
+      additionalProperties: false
+      required: [item, target_content_sha256, source_references, previous_version_diff, extracted_fields, golden_case_impacts]
+      properties:
+        item:
+          $ref: "#/components/schemas/ReviewItem"
+        target_content_sha256:
+          $ref: "#/components/schemas/Sha256"
+        source_references:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SourceReference"
+        previous_version_diff:
+          type: object
+          additionalProperties: true
+        extracted_fields:
+          type: object
+          additionalProperties: true
+        golden_case_impacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    ReviewDecision:
+      type: object
+      additionalProperties: false
+      required: [id, target_id, decision, reason, reviewer_id, decided_at, target_content_sha256]
+      properties:
+        id:
+          type: string
+          format: uuid
+        target_id:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+        reason:
+          type: string
+        reviewer_id:
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+        target_content_sha256:
+          $ref: "#/components/schemas/Sha256"
+
+    RuleBundle:
+      type: object
+      additionalProperties: false
+      required: [id, version, content_sha256, published_at, rule_count, golden_tests]
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        content_sha256:
+          $ref: "#/components/schemas/Sha256"
+        published_at:
+          type: string
+          format: date-time
+        rule_count:
+          type: integer
+          minimum: 1
+        golden_tests:
+          type: object
+          additionalProperties: false
+          required: [total, passed, failed]
+          properties:
+            total:
+              type: integer
+              minimum: 1
+            passed:
+              type: integer
+              minimum: 1
+            failed:
+              type: integer
+              const: 0
+
+    Problem:
+      type: object
+      additionalProperties: true
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [path, code, message]
+            properties:
+              path:
+                type: string
+              code:
+                type: string
+              message:
+                type: string

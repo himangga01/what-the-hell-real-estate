@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/rule-definition.schema.json",
+  "title": "Korean Real Estate Deterministic Rule Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rule_id",
+    "version",
+    "scope",
+    "legal_validity",
+    "recording_validity",
+    "derived_fact_calls",
+    "when",
+    "then",
+    "unknown",
+    "citations",
+    "golden_case_ids"
+  ],
+  "properties": {
+    "rule_id": {
+      "type": "string",
+      "pattern": "^KR\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}\\.[1-9][0-9]*$"
+    },
+    "title_ko": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 300
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "legal_validity": {
+      "$ref": "#/$defs/dateInterval"
+    },
+    "recording_validity": {
+      "$ref": "#/$defs/dateTimeInterval"
+    },
+    "derived_fact_calls": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/derivedFactCall"
+      }
+    },
+    "when": {
+      "$ref": "#/$defs/condition"
+    },
+    "then": {
+      "$ref": "#/$defs/effect"
+    },
+    "unknown": {
+      "$ref": "#/$defs/unknownPolicy"
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ruleRelationship"
+      },
+      "uniqueItems": true
+    },
+    "citations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/citation"
+      }
+    },
+    "golden_case_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^GC\\.[A-Z0-9_.-]+$"
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "domain"],
+      "properties": {
+        "stage": {
+          "enum": ["ACQUISITION", "HOLDING", "DISPOSAL", "GEOGRAPHY", "POLICY"]
+        },
+        "domain": {
+          "enum": [
+            "ACQUISITION_TAX",
+            "PROPERTY_TAX",
+            "COMPREHENSIVE_HOLDING_TAX",
+            "CAPITAL_GAINS",
+            "ADJUSTMENT_AREA",
+            "SPECULATION_OVERHEATED",
+            "SPECULATION_AREA",
+            "LAND_TRANSACTION_PERMIT",
+            "GENERAL_POLICY"
+          ]
+        },
+        "taxpayer_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["INDIVIDUAL", "CORPORATION", "RESIDENT", "NON_RESIDENT"]
+          }
+        }
+      }
+    },
+    "dateInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date"
+        },
+        "to": {
+          "oneOf": [
+            { "type": "string", "format": "date" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "dateTimeInterval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "oneOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        { "$ref": "#/$defs/allCondition" },
+        { "$ref": "#/$defs/anyCondition" },
+        { "$ref": "#/$defs/notCondition" },
+        { "$ref": "#/$defs/predicate" }
+      ]
+    },
+    "allCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all"],
+      "properties": {
+        "all": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/condition" }
+        }
+      }
+    },
+    "anyCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["any"],
+      "properties": {
+        "any": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/condition" }
+        }
+      }
+    },
+    "notCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["not"],
+      "properties": {
+        "not": { "$ref": "#/$defs/condition" }
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op"],
+      "properties": {
+        "fact": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+        },
+        "derived_fact": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+        },
+        "at": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "not_in",
+            "exists",
+            "between",
+            "date_in_range",
+            "designation_contains"
+          ]
+        },
+        "value": {},
+        "values": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {}
+        }
+      },
+      "oneOf": [
+        { "required": ["fact"] },
+        { "required": ["derived_fact"] }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "enum": ["eq", "ne", "gt", "gte", "lt", "lte"] } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["value"],
+            "not": { "required": ["values"] }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "enum": ["in", "not_in"] } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["values"],
+            "not": { "required": ["value"] },
+            "properties": {
+              "values": { "minItems": 1, "maxItems": 100 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "exists" } },
+            "required": ["op"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["value"] },
+                { "required": ["values"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "between" } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["values"],
+            "not": { "required": ["value"] },
+            "properties": {
+              "values": { "minItems": 2, "maxItems": 2 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "date_in_range" } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["value"],
+            "not": { "required": ["values"] },
+            "properties": {
+              "value": { "$ref": "#/$defs/dateInterval" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "designation_contains" } },
+            "required": ["op"]
+          },
+          "then": {
+            "required": ["value"],
+            "not": { "required": ["values"] },
+            "properties": {
+              "value": { "$ref": "#/$defs/designationQuery" }
+            }
+          }
+        }
+      ]
+    },
+    "designationQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["designation_type", "as_of_fact"],
+      "properties": {
+        "designation_type": {
+          "enum": ["ADJUSTMENT_AREA", "SPECULATION_OVERHEATED", "SPECULATION_AREA", "LAND_TRANSACTION_PERMIT"]
+        },
+        "as_of_fact": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+        }
+      }
+    },
+    "derivedFactCall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output", "function_id", "function_version", "args"],
+      "properties": {
+        "output": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+        },
+        "function_id": {
+          "enum": [
+            "derive_tax_event_date",
+            "count_acquisition_tax_homes",
+            "count_capital_gains_homes",
+            "count_comprehensive_holding_tax_homes",
+            "sum_ownership_shares",
+            "calculate_holding_period",
+            "calculate_residence_period",
+            "lookup_progressive_bracket",
+            "calculate_progressive_tax"
+          ]
+        },
+        "function_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "args": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/functionArgument"
+          }
+        }
+      }
+    },
+    "functionArgument": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fact"],
+          "properties": {
+            "fact": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["constant"],
+          "properties": {
+            "constant": {
+              "type": ["string", "integer", "number", "boolean"]
+            }
+          }
+        }
+      ]
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["emit"],
+      "properties": {
+        "emit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["classification"],
+          "properties": {
+            "classification": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            },
+            "applicability": {
+              "enum": ["APPLIES", "DOES_NOT_APPLY", "CONDITIONAL"]
+            },
+            "review_required": {
+              "type": "boolean"
+            },
+            "derived_facts": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "$ref": "#/$defs/derivedFactEffect"
+              }
+            },
+            "calculation_lines": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/$defs/calculationLine"
+              }
+            }
+          }
+        }
+      }
+    },
+    "derivedFactEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+        },
+        "value": {}
+      }
+    },
+    "calculationLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "kind", "expression"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "kind": {
+          "enum": ["BASE", "DEDUCTION", "CREDIT", "TAX", "SURTAX", "ROUNDING"]
+        },
+        "expression": {
+          "$ref": "#/$defs/arithmeticExpression"
+        },
+        "rounding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "unit_krw"],
+          "properties": {
+            "mode": {
+              "enum": ["FLOOR", "CEILING", "HALF_UP", "HALF_EVEN"]
+            },
+            "unit_krw": {
+              "type": "integer",
+              "enum": [1, 10, 100, 1000, 10000]
+            }
+          }
+        }
+      }
+    },
+    "arithmeticExpression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["constant"],
+          "properties": {
+            "constant": {
+              "oneOf": [
+                { "type": "integer" },
+                { "type": "string", "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$" }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fact"],
+          "properties": {
+            "fact": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "args"],
+          "properties": {
+            "op": {
+              "enum": ["add", "subtract", "multiply", "divide", "min", "max"]
+            },
+            "args": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 20,
+              "items": {
+                "$ref": "#/$defs/arithmeticExpression"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unknownPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "required_facts"],
+      "properties": {
+        "outcome": {
+          "enum": ["NEEDS_INPUT", "REQUIRES_OFFICIAL_CHECK", "UNSUPPORTED"]
+        },
+        "required_facts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)*$"
+          }
+        }
+      }
+    },
+    "ruleRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "target_rule_id"],
+      "properties": {
+        "kind": {
+          "enum": ["OVERRIDES", "EXCLUDES", "SUPPRESSES", "SUPERSEDES", "REQUIRES"]
+        },
+        "target_rule_id": {
+          "type": "string",
+          "pattern": "^KR\\.[A-Z0-9_]+(?:\\.[A-Z0-9_]+)+$"
+        }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_document_id", "content_sha256", "selector", "role"],
+      "properties": {
+        "source_document_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value"],
+          "properties": {
+            "type": {
+              "enum": ["ARTICLE", "PAGE", "TABLE", "PARAGRAPH", "TEXT_RANGE"]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        },
+        "role": {
+          "enum": ["AUTHORITY", "DEFINITION", "RATE", "EXCEPTION", "TRANSITION", "BOUNDARY"]
+        }
+      }
+    }
+  }
+}
