@@ -1,7 +1,8 @@
 # 로컬 개발·검증 빠른 시작
 
-**현재 상태**: 설계 문서 단계. 아래 애플리케이션 명령은 구현 작업이 완료된 뒤의
-목표 실행 절차이며, 지금 저장소에 서버 코드가 이미 있다는 뜻이 아니다.
+**현재 상태**: 의존성 잠금·품질 설정·로컬 DB 정의·CI까지의 설정 골격은 구현됐다.
+아래 서버·마이그레이션·fixture·테스트 명령은 해당 구현 작업이 완료된 뒤의 목표
+실행 절차이며, 지금 저장소에 애플리케이션 코드가 이미 있다는 뜻이 아니다.
 
 ## 1. 도구 준비
 
@@ -12,7 +13,7 @@
 - uv
 - Node.js 24 LTS와 npm
 - Docker Desktop 또는 PostgreSQL 18 + PostGIS + pgvector
-- Spec Kit CLI 0.12.9
+- Spec Kit CLI 0.12.9(문서 workflow를 실행할 때만 선택적으로 필요)
 
 버전 확인:
 
@@ -27,7 +28,14 @@ specify --version
 
 ## 2. 환경 변수
 
-구현 후 `.env.example`을 `.env`로 복사하고 로컬 값만 채운다.
+현재 제공되는 `.env.example`을 `.env`로 복사하고 로컬 값만 채운다.
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
+```
+
+백엔드 기본값:
 
 ```dotenv
 APP_ENV=development
@@ -39,18 +47,30 @@ EMBEDDING_PROVIDER=disabled
 GENERATION_PROVIDER=disabled
 ```
 
+프런트엔드 공개 설정:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
+```
+
 API 키·토큰은 저장소에 커밋하지 않는다. fixture 모드에서는 외부 주소·생성 모델
-호출 없이 검증할 수 있어야 한다.
+호출 없이 검증할 수 있어야 한다. `VITE_*` 값은 브라우저에 공개되므로 비밀값을
+넣지 않는다.
 
 ## 3. 의존성과 DB
 
-구현 후 예상 명령:
+현재 실행 가능한 잠금 설치와 DB 기동 명령:
 
 ```powershell
-uv sync --project backend --all-groups
-npm ci --prefix frontend
-docker compose -f infra/docker-compose.yml up -d db
-uv run --project backend alembic upgrade head
+uv sync --project backend --locked --all-groups --python 3.14 --no-python-downloads
+npm --prefix frontend ci --ignore-scripts --no-audit --no-fund
+docker compose --file infra/docker-compose.yml up --detach --build --wait db
+```
+
+T019 이후 마이그레이션 목표 명령:
+
+```powershell
+uv run --project backend --locked --no-sync alembic upgrade head
 ```
 
 DB에는 `postgis`, `vector` 확장이 필요하다. 마이그레이션이 확장을 만들 수 없는
@@ -62,7 +82,7 @@ DB에는 `postgis`, `vector` 확장이 필요하다. 마이그레이션이 확�
 고정된 fixture를 적재한다.
 
 ```powershell
-uv run --project backend python -m app.jobs.seed `
+uv run --project backend --locked --no-sync python -m app.jobs.seed `
   --manifest scripts/seed/verified-fixtures/manifest.json
 ```
 
@@ -79,7 +99,7 @@ uv run --project backend python -m app.jobs.seed `
 각 터미널에서 실행한다.
 
 ```powershell
-uv run --project backend uvicorn app.main:app --reload --port 8000
+uv run --project backend --locked --no-sync uvicorn app.main:app --reload --port 8000
 ```
 
 ```powershell
@@ -95,21 +115,22 @@ npm run dev --prefix frontend
 ## 6. 자동 검증
 
 ```powershell
-uv run --project backend pytest
-uv run --project backend ruff check .
-uv run --project backend pyright
-npm test --prefix frontend
-npm run lint --prefix frontend
-npm run typecheck --prefix frontend
-npm run test:e2e --prefix frontend
+uv run --project backend --locked --no-sync pytest
+uv run --project backend --locked --no-sync ruff check .
+uv run --project backend --locked --no-sync pyright
+npm --prefix frontend run test:unit
+npm --prefix frontend run lint
+npm --prefix frontend run format:check
+npm --prefix frontend run typecheck
+npm --prefix frontend run test:e2e
 ```
 
 규칙 검증:
 
 ```powershell
-uv run --project backend python -m app.domains.rules.cli validate backend/rulesets
-uv run --project backend python -m app.domains.rules.cli golden backend/rulesets
-uv run --project backend python -m app.domains.rules.cli compile `
+uv run --project backend --locked --no-sync python -m app.domains.rules.cli validate backend/rulesets
+uv run --project backend --locked --no-sync python -m app.domains.rules.cli golden backend/rulesets
+uv run --project backend --locked --no-sync python -m app.domains.rules.cli compile `
   backend/rulesets --dry-run
 ```
 
@@ -172,7 +193,8 @@ uv run --project backend python -m app.domains.rules.cli compile `
 ## AI Context (English)
 
 ```yaml
-document_state: target_workflow_before_implementation
+document_state: setup_scaffold_implemented_application_commands_are_future_targets
+install_policy: lockfiles_only
 local_ports:
   frontend: 5173
   backend: 8000

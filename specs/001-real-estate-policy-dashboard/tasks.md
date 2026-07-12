@@ -47,7 +47,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [x] T010 [P] 비밀값 없이 설정 계약과 fixture 기본값을 `backend/.env.example`과 `frontend/.env.example`에 작성한다.
 - [x] T011 [P] Ruff·Pyright·ESLint·Prettier 설정을 `backend/pyproject.toml`, `frontend/eslint.config.js`, `frontend/tsconfig.json`에 구성한다.
 - [x] T012 [P] 잠금 파일 기반 설치, Ruff·Pyright·ESLint·타입 검사·빌드·백엔드·프런트·계약·골든 테스트와 공식 OpenAPI·JSON Schema 2020-12 검증을 실행하는 CI를 `.github/workflows/ci.yml`에 추가한다.
-- [ ] T013 Docker 또는 승인된 호환 런타임을 포함한 사전 요구사항, 개발·테스트·fixture 적재 명령과 현재 지원 범위를 `README.md`에 한국어 우선, English AI Context 순서로 기록한다.
+- [x] T013 Docker 또는 승인된 호환 런타임을 포함한 사전 요구사항, 개발·테스트·fixture 적재 명령과 현재 지원 범위를 `README.md`에 한국어 우선, English AI Context 순서로 기록한다.
 
 ---
 
