@@ -183,6 +183,118 @@ Invoke-Test 'Modified archive is rejected' {
     }
 }
 
+Invoke-Test 'Tool session rejects a modified archive and removes its workspace' {
+    $before = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'rhwp-tool-*' |
+        Select-Object -ExpandProperty FullName)
+    $download = {
+        param([uri]$Uri, [string]$Destination)
+
+        if ([IO.Path]::GetFileName($Destination) -ceq 'SHA256SUMS.txt') {
+            Set-Content -LiteralPath $Destination -Encoding Ascii -Value (
+                ('0' * 64) + '  rhwp-v0.7.18-windows-x86_64.zip'
+            )
+        }
+        else {
+            Set-Content -LiteralPath $Destination -Encoding Ascii -Value 'modified archive'
+        }
+        return [uri]'https://release-assets.githubusercontent.com/test-asset'
+    }
+
+    Assert-ThrowsLike {
+        New-RhwpToolSession `
+            -Platform windows `
+            -Architecture x86_64 `
+            -DownloadFile $download
+    } '*checksum mismatch*'
+    $after = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'rhwp-tool-*' |
+        Select-Object -ExpandProperty FullName)
+    Assert-Equal ($after -join '|') ($before -join '|') 'Failed tool session leaked a workspace'
+}
+
+Invoke-Test 'Local tool session requires the pinned version' {
+    $directory = New-TestDirectory -Prefix 'rhwp-local-version-'
+    try {
+        $fakeTool = Join-Path $directory 'rhwp.cmd'
+        Set-Content -LiteralPath $fakeTool -Encoding Ascii -Value @(
+            '@echo off',
+            'echo rhwp v0.7.17'
+        )
+        Assert-ThrowsLike {
+            New-RhwpToolSession -RhwpPath $fakeTool
+        } '*version must be exactly*'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-local-version-'
+    }
+}
+
+Invoke-Test 'Valid local tool session records version and executable hash' {
+    $directory = New-TestDirectory -Prefix 'rhwp-local-success-'
+    try {
+        $fakeTool = Join-Path $directory 'rhwp.cmd'
+        Set-Content -LiteralPath $fakeTool -Encoding Ascii -Value @(
+            '@echo off',
+            'echo rhwp v0.7.18'
+        )
+        $session = New-RhwpToolSession -RhwpPath $fakeTool
+        Assert-Equal $session.Version 'v0.7.18' 'Local tool version was not recorded'
+        Assert-Equal $session.Temporary $false 'Local tool was marked temporary'
+        Assert-Equal `
+            $session.ExecutableSha256 `
+            (Get-FileHash -LiteralPath $fakeTool -Algorithm SHA256).Hash `
+            'Local executable hash mismatch'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-local-success-'
+    }
+}
+
+Invoke-Test 'Tool cleanup refuses a workspace without its ownership sentinel' {
+    $directory = New-TestDirectory -Prefix 'rhwp-tool-'
+    try {
+        $session = [pscustomobject]@{
+            Temporary = $true
+            WorkspacePath = $directory
+        }
+        Assert-ThrowsLike {
+            Remove-RhwpToolSession -Session $session
+        } '*ownership sentinel*'
+        Assert-True (Test-Path -LiteralPath $directory) 'Unsafe workspace was deleted'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-tool-'
+    }
+}
+
+Invoke-Test 'Tool entrypoint emits verified local metadata as JSON' {
+    $directory = New-TestDirectory -Prefix 'rhwp-entrypoint-test-'
+    try {
+        $fakeTool = Join-Path $directory 'rhwp.cmd'
+        Set-Content -LiteralPath $fakeTool -Encoding Ascii -Value @(
+            '@echo off',
+            'echo rhwp v0.7.18'
+        )
+        $entrypoint = Join-Path $PSScriptRoot '..\rhwp-tool.ps1'
+        $output = @(& powershell.exe `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File $entrypoint `
+                -RhwpPath $fakeTool 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+        Assert-Equal $exitCode 0 'Tool entrypoint failed'
+        $metadata = ($output -join [Environment]::NewLine) | ConvertFrom-Json
+        Assert-Equal $metadata.version 'v0.7.18' 'Entrypoint version mismatch'
+        Assert-Equal $metadata.temporary $false 'Entrypoint temporary flag mismatch'
+        Assert-Equal `
+            $metadata.executable_sha256 `
+            (Get-FileHash -LiteralPath $fakeTool -Algorithm SHA256).Hash `
+            'Entrypoint executable hash mismatch'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-entrypoint-test-'
+    }
+}
+
 Write-Output "RESULT Passed=$script:Passed Failed=$script:Failed"
 if ($script:Failed -gt 0) {
     exit 1
