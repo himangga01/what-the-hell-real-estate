@@ -90,6 +90,10 @@
 - [x] 공식 CLI 생성 임시 HWP 18페이지를 text·Markdown으로 추출하고 입력·출력 해시를 재계산했다.
 - [x] 제2018-1086호 HWP의 기존 SHA-256을 재확인하고 공고번호·광명시·하남시를 `rhwp`로 대조했다.
 - [x] 통합검증 후 도구·생성 HWP·추출물이 임시 디렉터리에서 삭제되고 입력 보존 동작을 확인했다.
+- [x] 리디렉션 요청 전 허용 호스트 검사, 입력 전후 SHA-256, 예상 밖 파일 거부와 원자 게시를
+  포함한 단위 테스트 25건을 통과했다.
+- [x] 성공 명령 진단 기록과 실행 중 생성한 손상 HWP의 무게시 실패 경로를 공식 도구로 확인했다.
+- [x] Windows PowerShell 5.1 단위·로컬 리디렉션 검증을 필수 CI 게이트에 연결했다.
 - [ ] 법령 본문과 판례·첨부를 별도 권리 행으로 검수했다.
 - [ ] 공공누리 표시는 문서·첨부별로 확인했다.
 - [ ] `REVIEW_REQUIRED`, `LINK_ONLY`, `BLOCKED` 자료의 전문 공개·RAG가 비활성이다.
@@ -166,6 +170,15 @@ automated_research_progress:
   rhwp_generated_fixture_text_pages: 18
   rhwp_generated_fixture_markdown_pages: 18
   rhwp_manifest_hashes_verified: true
+  rhwp_unit_tests_passed: 25
+  rhwp_redirect_validation: BEFORE_EACH_REQUEST
+  rhwp_input_integrity_check: PRE_AND_POST_SHA256
+  rhwp_output_tree_policy: EXPECTED_PAGES_ONLY
+  rhwp_atomic_publish_verified: true
+  rhwp_command_diagnostics_recorded: true
+  rhwp_corrupt_input_failed_closed: true
+  rhwp_required_ci: WINDOWS_POWERSHELL_5_1_UNIT_AND_LOCAL_REDIRECT
+  rhwp_official_integration_ci: MANUAL_NON_BLOCKING
   rhwp_extraction_retention: TEMPORARY_NOT_RETAINED
   rhwp_government_hwp_reextraction:
     document: molit_notice_2018_1086

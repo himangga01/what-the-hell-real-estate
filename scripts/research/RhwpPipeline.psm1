@@ -138,33 +138,137 @@ function Get-RhwpExecutableVersion {
 function Invoke-RhwpDownload {
     param(
         [Parameter(Mandatory)] [uri]$Uri,
-        [Parameter(Mandatory)] [string]$Destination
+        [Parameter(Mandatory)] [string]$Destination,
+        [scriptblock]$RequestSender,
+        [scriptblock]$UriValidator
     )
 
-    if (-not (Test-RhwpAllowedHost -Uri $Uri)) {
+    if ($null -eq $UriValidator) {
+        $UriValidator = {
+            param([uri]$Candidate)
+            Test-RhwpAllowedHost -Uri $Candidate
+        }
+    }
+    if (-not (& $UriValidator $Uri)) {
         throw "Untrusted rhwp download URI: $Uri"
     }
 
-    $response = Invoke-WebRequest `
-        -UseBasicParsing `
-        -Uri $Uri `
-        -OutFile $Destination `
-        -PassThru
-    $finalUri = if ($null -ne $response.BaseResponse.ResponseUri) {
-        [uri]$response.BaseResponse.ResponseUri
-    }
-    elseif ($null -ne $response.BaseResponse.RequestMessage) {
-        [uri]$response.BaseResponse.RequestMessage.RequestUri
-    }
-    else {
-        $Uri
+    $httpClient = $null
+    if ($null -eq $RequestSender) {
+        try {
+            Add-Type -AssemblyName System.Net.Http -ErrorAction Stop
+        }
+        catch {
+            throw "Unable to load System.Net.Http for the rhwp downloader: $($_.Exception.Message)"
+        }
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.AllowAutoRedirect = $false
+        $httpClient = [System.Net.Http.HttpClient]::new($handler, $true)
+        $httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(
+            'what-the-hell-real-estate-rhwp-pipeline/1.0'
+        )
+        $RequestSender = {
+            param([uri]$RequestUri, [string]$TargetPath)
+
+            $response = $httpClient.GetAsync(
+                $RequestUri,
+                [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
+            ).GetAwaiter().GetResult()
+            try {
+                $statusCode = [int]$response.StatusCode
+                $location = if ($null -eq $response.Headers.Location) {
+                    $null
+                }
+                else {
+                    $response.Headers.Location.OriginalString
+                }
+                if ($statusCode -ge 200 -and $statusCode -le 299) {
+                    $contentStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                    try {
+                        $fileStream = [IO.File]::Open(
+                            $TargetPath,
+                            [IO.FileMode]::CreateNew,
+                            [IO.FileAccess]::Write,
+                            [IO.FileShare]::None
+                        )
+                        try {
+                            $contentStream.CopyTo($fileStream)
+                        }
+                        finally {
+                            $fileStream.Dispose()
+                        }
+                    }
+                    finally {
+                        $contentStream.Dispose()
+                    }
+                }
+                return [pscustomobject]@{
+                    StatusCode = $statusCode
+                    Location = $location
+                }
+            }
+            finally {
+                $response.Dispose()
+            }
+        }.GetNewClosure()
     }
 
-    if (-not (Test-RhwpAllowedHost -Uri $finalUri)) {
-        Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
-        throw "Untrusted rhwp redirect host: $($finalUri.Host)"
+    $redirectCodes = @(300, 301, 302, 303, 307, 308)
+    $currentUri = $Uri
+    try {
+        for ($redirectCount = 0; $redirectCount -le 10; $redirectCount++) {
+            if (-not (& $UriValidator $currentUri)) {
+                throw "Untrusted rhwp redirect host: $($currentUri.Host)"
+            }
+            $result = & $RequestSender $currentUri $Destination
+            if ($null -eq $result -or $null -eq $result.StatusCode) {
+                throw "rhwp download returned no HTTP status for $currentUri"
+            }
+            $statusCode = [int]$result.StatusCode
+            if ($redirectCodes -contains $statusCode) {
+                if ($redirectCount -ge 10) {
+                    throw 'rhwp download exceeded the 10-redirect limit.'
+                }
+                if ([string]::IsNullOrWhiteSpace([string]$result.Location)) {
+                    throw "rhwp download redirect returned no location for $currentUri"
+                }
+                try {
+                    $location = [uri]$result.Location
+                    $nextUri = if ($location.IsAbsoluteUri) {
+                        $location
+                    }
+                    else {
+                        [uri]::new($currentUri, $location)
+                    }
+                }
+                catch {
+                    throw "rhwp download returned an invalid redirect location: $($result.Location)"
+                }
+                if (-not (& $UriValidator $nextUri)) {
+                    throw "Untrusted rhwp redirect host: $($nextUri.Host)"
+                }
+                $currentUri = $nextUri
+                continue
+            }
+            if ($statusCode -lt 200 -or $statusCode -gt 299) {
+                throw "rhwp download failed with HTTP status $statusCode for $currentUri"
+            }
+            if (-not (Test-Path -LiteralPath $Destination -PathType Leaf)) {
+                throw "rhwp download returned success without a file: $currentUri"
+            }
+            return $currentUri
+        }
+        throw 'rhwp download exceeded the redirect limit.'
     }
-    return $finalUri
+    catch {
+        Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
+        throw
+    }
+    finally {
+        if ($null -ne $httpClient) {
+            $httpClient.Dispose()
+        }
+    }
 }
 
 function Remove-RhwpOwnedWorkspace {
@@ -386,6 +490,51 @@ function Get-RhwpPageOutputs {
     return $files
 }
 
+function Assert-RhwpOutputDirectory {
+    param(
+        [Parameter(Mandatory)] [string]$Directory,
+        [Parameter(Mandatory)] [object[]]$PageFiles
+    )
+
+    $allowedPaths = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($file in $PageFiles) {
+        [void]$allowedPaths.Add([IO.Path]::GetFullPath([string]$file.FullName))
+    }
+    $unexpected = @(Get-ChildItem -LiteralPath $Directory -Force | Where-Object {
+            $_.PSIsContainer -or -not $allowedPaths.Contains([IO.Path]::GetFullPath($_.FullName))
+        })
+    if ($unexpected.Count -gt 0) {
+        throw "rhwp produced unexpected extraction output: $($unexpected[0].Name)"
+    }
+}
+
+function Assert-RhwpStagingRoot {
+    param(
+        [Parameter(Mandatory)] [string]$Directory,
+        [Parameter(Mandatory)] [string[]]$RequestedFormats,
+        [switch]$ManifestWritten
+    )
+
+    $allowedNames = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::OrdinalIgnoreCase
+    )
+    [void]$allowedNames.Add('.rhwp-owned')
+    foreach ($kind in $RequestedFormats) {
+        [void]$allowedNames.Add($kind)
+    }
+    if ($ManifestWritten) {
+        [void]$allowedNames.Add('rhwp-extraction-manifest.json')
+    }
+    $unexpected = @(Get-ChildItem -LiteralPath $Directory -Force | Where-Object {
+            -not $allowedNames.Contains($_.Name)
+        })
+    if ($unexpected.Count -gt 0) {
+        throw "rhwp produced unexpected extraction output: $($unexpected[0].Name)"
+    }
+}
+
 function Invoke-RhwpExtraction {
     [CmdletBinding()]
     param(
@@ -412,6 +561,11 @@ function Invoke-RhwpExtraction {
     elseif ($input.PSIsContainer -or $input.Extension.ToLowerInvariant() -ne '.hwp') {
         throw 'InputPath must have the .hwp extension.'
     }
+    $inputByteCount = [long]$input.Length
+    if ($inputByteCount -le 0) {
+        throw 'InputPath must not be empty.'
+    }
+    $inputSha256 = (Get-FileHash -LiteralPath $input.FullName -Algorithm SHA256).Hash
 
     $outputFullPath = [IO.Path]::GetFullPath($OutputDirectory)
     if (Test-Path -LiteralPath $outputFullPath) {
@@ -463,22 +617,33 @@ function Invoke-RhwpExtraction {
             if ($null -eq $result -or $null -eq $result.ExitCode) {
                 throw "$commandName returned no exit code."
             }
+            $commandDiagnostics = if ($null -eq $result.Output) {
+                @()
+            }
+            else {
+                @($result.Output | ForEach-Object { $_.ToString() })
+            }
             if ([int]$result.ExitCode -ne 0) {
-                $commandOutput = @($result.Output) -join [Environment]::NewLine
+                $commandOutput = $commandDiagnostics -join [Environment]::NewLine
                 throw "$commandName failed with exit code $($result.ExitCode): $commandOutput"
             }
             $commands.Add([ordered]@{
                     name = $commandName
                     arguments = $arguments
                     exit_code = 0
+                    diagnostics = [object[]]$commandDiagnostics
                 })
-            foreach ($file in @(Get-RhwpPageOutputs `
-                        -Directory $destination `
-                        -Stem $input.BaseName `
-                        -Extension $fileExtension)) {
+            $formatPageFiles = @(Get-RhwpPageOutputs `
+                    -Directory $destination `
+                    -Stem $input.BaseName `
+                    -Extension $fileExtension)
+            Assert-RhwpOutputDirectory -Directory $destination -PageFiles $formatPageFiles
+            foreach ($file in $formatPageFiles) {
                 $pageFiles.Add($file)
             }
         }
+
+        Assert-RhwpStagingRoot -Directory $staging -RequestedFormats $requestedFormats
 
         if ($normalizedFormat -ceq 'both') {
             $textCount = @($pageFiles | Where-Object { $_.Extension -ceq '.txt' }).Count
@@ -486,6 +651,18 @@ function Invoke-RhwpExtraction {
             if ($textCount -ne $markdownCount) {
                 throw "rhwp text and markdown page counts differ: $textCount and $markdownCount."
             }
+        }
+
+        try {
+            $inputAfter = Get-Item -LiteralPath $input.FullName -ErrorAction Stop
+            $inputSha256After = (Get-FileHash -LiteralPath $input.FullName -Algorithm SHA256).Hash
+        }
+        catch {
+            throw "The input changed during extraction: $($_.Exception.Message)"
+        }
+        if ($inputAfter.PSIsContainer -or [long]$inputAfter.Length -ne $inputByteCount -or
+            $inputSha256After -cne $inputSha256) {
+            throw 'The input changed during extraction; output will not be published.'
         }
 
         $manifestOutputs = @($pageFiles | ForEach-Object {
@@ -507,8 +684,8 @@ function Invoke-RhwpExtraction {
             }
             input = [ordered]@{
                 file_name = $input.Name
-                byte_count = $input.Length
-                sha256 = (Get-FileHash -LiteralPath $input.FullName -Algorithm SHA256).Hash
+                byte_count = $inputByteCount
+                sha256 = $inputSha256
             }
             commands = @($commands)
             outputs = $manifestOutputs
@@ -525,12 +702,30 @@ function Invoke-RhwpExtraction {
             ConvertTo-Json -Depth 8 |
             Set-Content -LiteralPath $manifestTemporaryPath -Encoding UTF8
         Move-Item -LiteralPath $manifestTemporaryPath -Destination $manifestPath
+        Assert-RhwpStagingRoot `
+            -Directory $staging `
+            -RequestedFormats $requestedFormats `
+            -ManifestWritten
 
         if ($session.Temporary) {
             Remove-RhwpToolSession -Session $session
             $session = $null
         }
-        Move-Item -LiteralPath $staging -Destination $outputFullPath
+        $sentinelPath = Join-Path $staging '.rhwp-owned'
+        Remove-Item -LiteralPath $sentinelPath -Force
+        try {
+            [IO.Directory]::Move($staging, $outputFullPath)
+        }
+        catch {
+            if (Test-Path -LiteralPath $staging -PathType Container) {
+                Set-Content `
+                    -LiteralPath $sentinelPath `
+                    -Encoding Ascii `
+                    -NoNewline `
+                    -Value $stagingLeaf
+            }
+            throw "Unable to atomically publish rhwp extraction output: $($_.Exception.Message)"
+        }
         return [pscustomobject]$manifest
     }
     catch {

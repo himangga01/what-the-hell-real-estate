@@ -84,6 +84,30 @@ try {
         throw 'Extraction manifest archive hash does not match the verified session.'
     }
 
+    $corruptInputPath = Join-Path $workspace 'corrupt.hwp'
+    $corruptOutputDirectory = Join-Path $workspace 'corrupt-extracted'
+    [IO.File]::WriteAllBytes($corruptInputPath, [byte[]]@(1, 2, 3, 4))
+    $corruptFailure = $null
+    try {
+        Invoke-RhwpExtraction `
+            -InputPath $corruptInputPath `
+            -OutputDirectory $corruptOutputDirectory `
+            -Format text `
+            -ToolResolver $toolResolver | Out-Null
+    }
+    catch {
+        $corruptFailure = $_
+    }
+    if ($null -eq $corruptFailure) {
+        throw 'A corrupt HWP unexpectedly produced a successful extraction.'
+    }
+    if (Test-Path -LiteralPath $corruptOutputDirectory) {
+        throw 'A corrupt HWP published an output directory.'
+    }
+    if (-not (Test-Path -LiteralPath $corruptInputPath -PathType Leaf)) {
+        throw 'A failed corrupt-HWP extraction deleted its input.'
+    }
+
     $evidence = [ordered]@{
         version = $session.Version
         archive_sha256 = $session.ArchiveSha256
@@ -94,6 +118,7 @@ try {
         input_hash_verified = $true
         manifest_hashes_verified = $true
         manifest_archive_hash_verified = $true
+        corrupt_input_failed_closed = $true
         retention_status = $manifest.retention_status
     }
 }

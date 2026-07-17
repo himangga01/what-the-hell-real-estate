@@ -47,12 +47,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/research/extract
 ```
 
 - 공식 archive는 `SHA256SUMS.txt`와 일치해야 실행된다.
+- GitHub 리디렉션은 자동 추종하지 않고 허용 호스트를 각 요청 전에 검사한다.
+- 입력 크기·SHA-256은 추출 전후가 같아야 하며, 예상 밖 출력은 게시하지 않는다.
+- 내부 임시 소유권 표식은 최종 출력에 포함하지 않고 출력 디렉터리를 원자적으로 게시한다.
 - `rhwp-extraction-manifest.json`에 입력·실행 파일·archive·페이지별 출력 SHA-256을 기록한다.
+- 매니페스트의 명령 레코드에는 `rhwp` 진단 메시지를 함께 기록한다.
 - 기본 보존 상태 `TEMPORARY_NOT_RETAINED`는 해시만 조사 응답을 식별하고 원문·추출물은
   불변 보존하지 않았다는 뜻이다.
 - HWPX 텍스트 추출은 고정 버전 호환성 테스트 전까지 fail-closed로 비활성이다.
 - 추출 성공만으로 정책·세금·공간·권리 상태를 `VERIFIED` 또는 승인 상태로 바꾸지 않는다.
 - 정부기관 원문과 추출 전문은 권리 승인 전 저장소 fixture나 RAG에 넣지 않는다.
+- Windows PowerShell 5.1의 단위 테스트와 로컬 리디렉션 스모크 테스트는 필수 CI에서
+  실행하며, 공식 릴리스 다운로드 통합 테스트는 수동 CI로 다시 실행할 수 있다.
 
 ---
 
@@ -80,4 +86,12 @@ rhwp:
   extraction_retention: TEMPORARY_NOT_RETAINED
   hwpx_extraction_enabled: false
   government_fixture_commit_allowed: false
+  redirect_validation: BEFORE_EACH_REQUEST
+  input_integrity_check: PRE_AND_POST_SHA256
+  output_tree_policy: EXPECTED_PAGES_ONLY
+  unit_tests_passed: 25
+  integration_pages: {text: 18, markdown: 18}
+  corrupt_hwp_failed_closed: true
+  required_ci: WINDOWS_POWERSHELL_5_1_UNIT_AND_LOCAL_REDIRECT
+  official_integration_ci: MANUAL_NON_BLOCKING
 ```

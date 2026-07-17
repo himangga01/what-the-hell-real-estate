@@ -85,8 +85,11 @@ HWP 렌더링이 필요해질 때 별도 설계로 검토한다.
 2. 도구 부트스트랩 또는 검증된 `RhwpPath`에서 실행 파일을 얻는다.
 3. 텍스트는 `rhwp export-text`, 구조 보존본은 `rhwp export-markdown`으로 추출한다.
 4. 명령 종료 코드뿐 아니라 예상 출력 파일 존재, 비어 있지 않은 출력과 오류 메시지를 검사한다.
-5. 성공한 경우에만 `rhwp-extraction-manifest.json`을 원자적으로 생성한다.
-6. 호출자가 후속 검증을 마치면 출력 디렉터리를 삭제한다. 래퍼는 사용자 입력 원문을 삭제하지 않는다.
+   허용한 페이지 파일 이외의 파일·하위 디렉터리가 생기면 게시하지 않는다.
+5. 실행 후 입력 크기와 SHA-256을 다시 계산해 실행 전 값과 다르면 게시하지 않는다.
+6. 성공한 경우에만 `rhwp-extraction-manifest.json`을 생성하고, 내부 소유권 표식을 제거한
+   완전한 출력 디렉터리를 원자적으로 게시한다.
+7. 호출자가 후속 검증을 마치면 출력 디렉터리를 삭제한다. 래퍼는 사용자 입력 원문을 삭제하지 않는다.
 
 ### 4.3 실행 매니페스트
 
@@ -95,7 +98,7 @@ HWP 렌더링이 필요해질 때 별도 설계로 검토한다.
 - 스키마 버전과 실행 시각
 - `rhwp` 태그·실행 파일 SHA-256·공식 릴리스 URL
 - 입력 파일명·바이트 수·SHA-256
-- 실행한 하위 명령과 출력 형식
+- 실행한 하위 명령·출력 형식·도구 진단 메시지
 - 생성된 파일별 바이트 수·SHA-256
 - `TEMPORARY_NOT_RETAINED`, `RETAINED_APPROVED` 중 보존 상태
 - 경고, 파싱 오류와 수동 검수 필요 여부
@@ -110,13 +113,17 @@ HWP 렌더링이 필요해질 때 별도 설계로 검토한다.
 - 손상된 HWP 및 호환성이 확인되지 않은 HWPX: `PENDING_REVIEW`로 종료하고 부분 출력을
   근거로 사용하지 않음
 - 출력 0바이트 또는 예상 페이지 누락: 성공 매니페스트 생성 금지
+- 실행 중 입력 크기·SHA-256 변경: 결과 게시 금지
+- 허용한 페이지 이외의 파일·디렉터리 생성: 결과 게시 금지
+- 게시 직전 동일 출력 경로 생성: 기존 경로를 변경하지 않고 원자 게시 실패
 - 표·도형 내용 누락 의심: Markdown과 일반 텍스트를 비교하고 공식 게시 페이지를 병행 확인
 - 원문 권리 미승인: 전문 공개·RAG·저장소 커밋 금지
 - 임시 삭제 실패: 경로를 출력하고 성공으로 보고하지 않음
 
-최초 다운로드 URL은 고정된 GitHub 저장소와 태그만 허용한다. 리디렉션은 GitHub 릴리스가
-사용하는 `github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com`
-호스트만 허용하며, 그 밖의 최종 호스트로 이동하면 중단한다.
+최초 다운로드 URL은 고정된 GitHub 저장소와 태그만 허용한다. 자동 리디렉션은 끄고 각
+리디렉션 hop을 요청하기 전에 `github.com`, `objects.githubusercontent.com`,
+`release-assets.githubusercontent.com` 중 하나인지 검사한다. 그 밖의 호스트에는 요청하지
+않으며 리디렉션은 최대 10회까지만 허용한다.
 
 ## 6. 테스트 전략
 
@@ -130,6 +137,15 @@ HWP 렌더링이 필요해질 때 별도 설계로 검토한다.
 6. 성공 매니페스트의 입력·도구·출력 SHA-256을 재계산해 일치시키는 테스트
 7. 작업 종료 후 입력 원문은 유지되고 래퍼가 만든 임시 도구 파일만 삭제되는 테스트
 8. HWPX 샘플의 고정 버전 통합 테스트가 통과하기 전에는 `.hwpx` 입력을 거부하는 테스트
+9. 리디렉션 대상 호스트를 다음 요청 전에 거부하는 테스트
+10. 실행 중 입력의 같은 크기 내용 변경도 SHA-256 재검산으로 거부하는 테스트
+11. 예상 밖 출력과 내부 소유권 표식이 최종 출력에 게시되지 않는 테스트
+12. 게시 직전 같은 출력 경로가 생겨도 그 경로를 변경하지 않는 테스트
+13. 실행 중 만든 손상 HWP가 출력·성공 매니페스트 없이 실패하는 공식 도구 통합 테스트
+14. Windows PowerShell 5.1 기본 HTTP 클라이언트가 로컬 302를 자동 추종하지 않는 테스트
+
+1~12와 로컬 302 테스트는 Windows 필수 CI에서 실행한다. 공식 릴리스 다운로드와 손상 HWP
+통합 테스트는 외부 네트워크 변동을 필수 병합 게이트로 만들지 않도록 수동 CI에서 실행한다.
 
 권리 검토 전 정부 원문은 테스트 fixture로 커밋하지 않는다. 통합 테스트는 MIT 라이선스가
 확인된 `rhwp` 테스트 샘플을 고정 커밋과 해시로 사용하거나, 권리가 승인된 내부 fixture를
@@ -163,7 +179,7 @@ HWP 렌더링이 필요해질 때 별도 설계로 검토한다.
 ```yaml
 design_id: RHWP_RESEARCH_PIPELINE
 approved_on: 2026-07-17
-status: APPROVED_FOR_PLANNING
+status: APPROVED_AND_IMPLEMENTED
 scope: research_only_hwp_extraction_with_hwpx_capability_gate
 tool:
   repository: https://github.com/edwardkim/rhwp
@@ -181,9 +197,19 @@ components:
 security:
   fixed_release_only: true
   checksum_required: true
+  automatic_redirects: false
+  validate_every_redirect_before_request: true
+  maximum_redirects: 10
   unofficial_mirror_allowed: false
   delete_user_input: false
   default_retention: TEMPORARY_NOT_RETAINED
+  input_pre_and_post_hash_required: true
+  closed_output_tree_required: true
+  atomic_directory_publish: true
+ci:
+  required_windows_powershell_5_1: true
+  required_local_redirect_smoke: true
+  official_release_integration: MANUAL_NON_BLOCKING
 compatibility_gates:
   hwpx:
     default_enabled: false
@@ -194,6 +220,10 @@ fail_closed_on:
   - parser_error
   - empty_output
   - incomplete_page_output
+  - input_changed_during_extraction
+  - unexpected_output
+  - output_publish_race
+  - corrupt_hwp
 human_review_required:
   - legal_effect
   - tax_rule

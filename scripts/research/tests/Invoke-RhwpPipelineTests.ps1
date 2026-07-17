@@ -126,6 +126,40 @@ Invoke-Test 'Only approved GitHub release hosts are accepted' {
     Assert-True (-not (Test-RhwpAllowedHost -Uri 'https://example.com/a')) 'Untrusted host accepted'
 }
 
+Invoke-Test 'Redirect host is rejected before a follow-up request' {
+    $directory = New-TestDirectory -Prefix 'rhwp-redirect-test-'
+    try {
+        $destination = Join-Path $directory 'asset.zip'
+        $calls = [Collections.Generic.List[string]]::new()
+        $sender = {
+            param([uri]$RequestUri, [string]$Destination)
+            $calls.Add($RequestUri.AbsoluteUri)
+            if ($calls.Count -gt 1) {
+                throw 'An untrusted redirect target was requested.'
+            }
+            return [pscustomobject]@{
+                StatusCode = 302
+                Location = 'https://example.com/payload.zip'
+            }
+        }.GetNewClosure()
+        $module = Get-Module RhwpPipeline
+        Assert-ThrowsLike {
+            & $module {
+                param($TargetPath, $RequestSender)
+                Invoke-RhwpDownload `
+                    -Uri 'https://github.com/edwardkim/rhwp/releases/download/v0.7.18/asset.zip' `
+                    -Destination $TargetPath `
+                    -RequestSender $RequestSender
+            } $destination $sender
+        } '*Untrusted rhwp redirect host*'
+        Assert-Equal $calls.Count 1 'Untrusted redirect target received a request'
+        Assert-True (-not (Test-Path -LiteralPath $destination)) 'Rejected redirect left a download'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-redirect-test-'
+    }
+}
+
 Invoke-Test 'Exact asset checksum is selected' {
     $directory = New-TestDirectory -Prefix 'rhwp-checksum-test-'
     try {
@@ -366,6 +400,31 @@ Invoke-Test 'HWPX extraction stays disabled before compatibility evidence' {
     }
 }
 
+Invoke-Test 'Zero-byte HWP is rejected before tool resolution' {
+    $directory = New-TestDirectory -Prefix 'rhwp-empty-input-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        [IO.File]::WriteAllBytes($inputPath, [byte[]]@())
+        $probe = [pscustomobject]@{ Called = $false }
+        $resolver = {
+            $probe.Called = $true
+            throw 'resolver must not run'
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -ToolResolver $resolver
+        } '*must not be empty*'
+        Assert-Equal $probe.Called $false 'Tool resolver ran before input size validation'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Empty input created output'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-empty-input-'
+    }
+}
+
 Invoke-Test 'Successful extraction writes page hashes and an auditable manifest' {
     $directory = New-TestDirectory -Prefix 'rhwp-extract-success-'
     try {
@@ -400,6 +459,7 @@ Invoke-Test 'Successful extraction writes page hashes and an auditable manifest'
         Assert-Equal $manifest.schema_version 1 'Wrong manifest schema'
         Assert-Equal $manifest.tool.version 'v0.7.18' 'Wrong tool version'
         Assert-Equal $manifest.outputs.Count 4 'Expected two text and two Markdown pages'
+        Assert-Equal $manifest.commands[0].diagnostics[0] 'ok' 'Parser diagnostics were not recorded'
         Assert-Equal `
             $manifest.retention_status `
             'TEMPORARY_NOT_RETAINED' `
@@ -418,6 +478,11 @@ Invoke-Test 'Successful extraction writes page hashes and an auditable manifest'
                 (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash `
                 "Output hash mismatch for $($record.relative_path)"
         }
+        $publishedFiles = @(Get-ChildItem -LiteralPath $output -Recurse -File)
+        Assert-Equal $publishedFiles.Count 5 'Published output contains unaudited files'
+        Assert-True `
+            (-not (Test-Path -LiteralPath (Join-Path $output '.rhwp-owned'))) `
+            'Internal ownership sentinel was published'
         Assert-NoExtractionStaging -Parent $directory
     }
     finally {
@@ -463,6 +528,53 @@ Invoke-Test 'Parser command failure does not publish output' {
         -Runner {
             param([string]$Executable, [string[]]$Arguments)
             return [pscustomobject]@{ ExitCode = 2; Output = @('parser error') }
+        }
+}
+
+Invoke-Test 'Input mutation during extraction fails closed' {
+    $directory = New-TestDirectory -Prefix 'rhwp-input-mutation-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'alpha fixture bytes'
+        $session = New-FakeRhwpSession
+        $resolver = { $session }.GetNewClosure()
+        $runner = {
+            param([string]$Executable, [string[]]$Arguments)
+            $destination = $Arguments[3]
+            Set-Content `
+                -LiteralPath (Join-Path $destination 'sample_001.txt') `
+                -Encoding UTF8 `
+                -Value 'page one'
+            Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'bravo fixture bytes'
+            return [pscustomobject]@{ ExitCode = 0; Output = @('ok') }
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -Format text `
+                -ToolResolver $resolver `
+                -CommandRunner $runner
+        } '*input changed during extraction*'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Mutated input published output'
+        Assert-NoExtractionStaging -Parent $directory
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-input-mutation-'
+    }
+}
+
+Invoke-Test 'Unexpected parser files fail closed' {
+    Invoke-FailClosedExtractionTest `
+        -Prefix 'rhwp-unexpected-output-' `
+        -ExpectedError '*unexpected extraction output*' `
+        -Runner {
+            param([string]$Executable, [string[]]$Arguments)
+            $destination = $Arguments[3]
+            Set-Content -LiteralPath (Join-Path $destination 'sample_001.txt') -Encoding UTF8 -Value 'page one'
+            Set-Content -LiteralPath (Join-Path $destination 'debug.log') -Encoding UTF8 -Value 'unaudited'
+            return [pscustomobject]@{ ExitCode = 0; Output = @('ok') }
         }
 }
 
@@ -513,6 +625,39 @@ Invoke-Test 'Existing output directory is rejected before tool resolution' {
     }
     finally {
         Remove-TestDirectory -Path $directory -Prefix 'rhwp-existing-output-'
+    }
+}
+
+Invoke-Test 'Concurrent output creation prevents atomic publication' {
+    $directory = New-TestDirectory -Prefix 'rhwp-publish-race-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $session = New-FakeRhwpSession
+        $resolver = { $session }.GetNewClosure()
+        $runner = {
+            param([string]$Executable, [string[]]$Arguments)
+            Set-Content `
+                -LiteralPath (Join-Path $Arguments[3] 'sample_001.txt') `
+                -Encoding UTF8 `
+                -Value 'page one'
+            New-Item -ItemType Directory -Path $output | Out-Null
+            return [pscustomobject]@{ ExitCode = 0; Output = @('ok') }
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -Format text `
+                -ToolResolver $resolver `
+                -CommandRunner $runner
+        } '*atomically publish*'
+        Assert-Equal @(Get-ChildItem -LiteralPath $output -Force).Count 0 'Pipeline modified the competing output directory'
+        Assert-NoExtractionStaging -Parent $directory
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-publish-race-'
     }
 }
 

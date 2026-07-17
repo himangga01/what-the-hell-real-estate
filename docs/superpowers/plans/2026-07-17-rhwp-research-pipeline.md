@@ -24,8 +24,8 @@ JSON, GitHub Releases, 프레임워크 비의존 PowerShell 테스트 하네스
 - Windows x86_64 자산명은 `rhwp-v0.7.18-windows-x86_64.zip`이고 공식
   `SHA256SUMS.txt` 기준 SHA-256은
   `BD0B3280C0B87580BFC8C86AF337609ACF939C5F8F1DA6AB3EE73955064420FD`다.
-- 허용 리디렉션 최종 호스트는 `github.com`, `objects.githubusercontent.com`,
-  `release-assets.githubusercontent.com`뿐이다.
+- 자동 리디렉션을 끄고 각 hop을 요청하기 전에 `github.com`,
+  `objects.githubusercontent.com`, `release-assets.githubusercontent.com`인지 검사한다.
 - 체크섬, 버전, 파싱, 빈 출력, 페이지 연속성, 임시 정리 중 하나라도 실패하면 성공
   매니페스트를 만들지 않는다.
 - `.hwpx` 텍스트 추출은 `v0.7.18`의 고정 통합 테스트가 별도로 통과하기 전까지
@@ -34,6 +34,23 @@ JSON, GitHub Releases, 프레임워크 비의존 PowerShell 테스트 하네스
 - 원문 권리 승인 전 추출물 보존 상태는 `TEMPORARY_NOT_RETAINED`다.
 - 저장소에 정부기관 HWP 원문이나 추출 전문을 fixture로 커밋하지 않는다.
 - 생성·수정하는 Markdown은 한국어 설명을 먼저 두고, 마지막에 `English AI Context`를 둔다.
+
+## 승인 후 코드 검토 보완
+
+2026-07-17 코드 검토에서 입력 증거와 게시 경계를 더 엄격하게 만들었다. 입력 크기와
+SHA-256은 도구 실행 전에 고정하고 실행 후 다시 대조한다. 허용한 페이지 이외의 파일·하위
+디렉터리는 게시하지 않으며 내부 소유권 표식도 최종 출력에서 제거한다. 출력 디렉터리는
+동일 경로 경쟁 상태를 덮어쓰지 않는 원자 이동으로 게시한다. GitHub 리디렉션은 각 hop을
+요청하기 전에 허용 호스트인지 검사한다. 이 보완은 단위 테스트 25건과 공식 릴리스 기반
+18페이지 text·Markdown 통합 테스트로 검증했다.
+성공 명령의 도구 진단 메시지도 매니페스트에 기록하며, 실행 중 생성한 손상 HWP가 결과를
+게시하지 않는 실제 `v0.7.18` 경로를 같은 통합 테스트에서 확인했다.
+Windows PowerShell 5.1 단위 테스트와 로컬 302 기본 HTTP 경로는 필수 CI에 연결하고,
+공식 GitHub 릴리스 통합 테스트는 `workflow_dispatch`에서 실행하는 비필수 작업으로 분리했다.
+
+아래 작업별 코드 블록은 RED 테스트를 만들 당시의 시작점 기록이다. 코드 검토 보완 이후의
+보안 경계는 이 절과 실제 `scripts/research/RhwpPipeline.psm1`을 기준으로 하며, 특히 아래
+Step 3의 자동 리디렉션 예시는 사용하지 않는다.
 
 ## 파일 구조
 
@@ -339,14 +356,13 @@ Expected: `New-RhwpToolSession` 미정의로 새 테스트 2개 실패.
 ```powershell
 function Invoke-RhwpDownload {
     param([uri]$Uri, [string]$Destination)
-    if (-not (Test-RhwpAllowedHost -Uri $Uri)) { throw "Untrusted rhwp download URI: $Uri" }
-    $response = Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination -PassThru
-    $finalUri = [uri]$response.BaseResponse.ResponseUri
-    if (-not (Test-RhwpAllowedHost -Uri $finalUri)) {
-        Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue
-        throw "Untrusted rhwp redirect host: $($finalUri.Host)"
+    # 실제 구현은 System.Net.Http의 자동 리디렉션을 끈다.
+    # 최초 URL과 각 Location을 다음 요청 전에 허용목록으로 검사한다.
+    # 최대 10 hop, 비허용 호스트, 비정상 HTTP 상태와 부분 파일은 fail-closed 처리한다.
+    # 정확한 승인 구현은 scripts/research/RhwpPipeline.psm1을 기준으로 한다.
+    if (-not (Test-RhwpAllowedHost -Uri $Uri)) {
+        throw "Untrusted rhwp download URI: $Uri"
     }
-    return $finalUri
 }
 
 function New-RhwpToolSession {
@@ -1016,9 +1032,26 @@ fixed_tool:
   windows_executable_sha256: C92492674CD9B2BDEF7B550FD24591554F75FE391F6299F943B01B7AEEF4F859
 test_policy:
   unit_network: disabled
+  unit_tests_passed: 25
   integration_source: official_github_release
   integration_fixture: rhwp_gen_table_temporary_output
+  integration_text_pages: 18
+  integration_markdown_pages: 18
+  corrupt_hwp_failed_closed: true
   government_document_fixture_commit: forbidden
+  required_ci:
+    runner: windows-2022
+    powershell_major: 5
+    offline_unit_tests: true
+    local_default_http_redirect_smoke: true
+  optional_ci:
+    official_release_integration: workflow_dispatch
+review_hardening:
+  validate_redirect_before_each_request: true
+  input_pre_and_post_hash: true
+  reject_unexpected_output_tree: true
+  ownership_sentinel_published: false
+  atomic_directory_publish: true
 human_gates_unchanged:
   - T001
   - T002
