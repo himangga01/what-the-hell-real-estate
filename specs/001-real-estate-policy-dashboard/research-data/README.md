@@ -4,7 +4,7 @@
 
 **마지막 구조 확인**: 2026-07-17
 
-**현재 구조화 수량**: 정책 사건 89건, 정책 사건 관계 29건, 규제 지정 수단(공고) 44건,
+**현재 구조화 수량**: 정책 사건 105건, 정책 사건 관계 42건, 규제 지정 수단(공고) 45건,
 지정-원문 증거 연결 7건, 출처 권리 행 21건, 세금 규칙 카드 4건,
 불변 보존 전자관보 PDF 4건
 
@@ -45,16 +45,35 @@
   [`captures/manifest.csv`](./captures/manifest.csv)에 기록했다.
 - 투기지역은 서울 범위와 세종 범위를 효력 구간별로 분리했다. 다만 전자관보 키워드 검색은
   전국 이력 전수 열거기가 아니므로 2016-07-10~2026-07-10 전국 완전성을 주장하지 않는다.
-- 정책 사건은 발표·공포·시행·유예·연장·정정·해제·종료를 분리해 89건으로 정규화했다.
-  아직 85건은 불변 원문 캡처가 없고 기관별 역방향 전수 대조도 끝나지 않았다.
+- 정책 사건은 발표·공포·시행·유예·연장·정정·해제·종료를 분리해 105건으로 정규화했다.
+  2016-11-03과 2017-06-19를 일반 시행일로 보던 행을 실제 부령 공포·시행일인
+  2016-11-15와 2017-07-03으로 교정하고, 공포 사건과 효력 사건을 분리했다.
+- 국토교통부의 `조정대상지역` 제목 공식 색인 23건을 역대조해 기존에 없던 전매행위
+  제한기간 지정 공고 7건을 추가했다. 제2018-1090호는 공식 HWP를 `rhwp v0.7.18`로
+  2쪽 추출해 문서번호·구리시·안양시 동안구·광교 범위·공고일부터 효력을 확인했다.
+  이 색인 하나에서 기존 누락이 7/23이었으므로 전국 전수성을 계속 주장하지 않는다.
+- 정책 사건 105건 중 불변 원문 캡처는 4건뿐이다. `NOT_CAPTURED` 97건과
+  `TEMPORARY_NOT_RETAINED` 4건을 합친 101/105(96.2%)는 불변 원문이 없으며 기관별
+  역방향 전수 대조도 끝나지 않았다.
 - `policy-events.csv.event_at`은 조사 staging의 한국 표준시 민사 날짜(`YYYY-MM-DD`)다.
   구현 적재 시 `T00:00:00+09:00`으로 정규화하고 날짜 정밀도가 낮다는 메타데이터를 보존한다.
 - 사건의 인과·추가·정정·연장·해제 관계는 `supersedes_event_id`에 섞지 않고
   `policy-event-relations.csv`의 관계 유형으로 분리했다.
 - 2020년 제1650호의 지정과 해제는 별도 행으로 분리했다. 다만 최근 10년 지정 연장 공고의
   전국 전수 목록은 아직 없어 T003은 미완료다.
-- 출처 권리는 역할이 섞인 기관·본문·첨부를 분리했지만 robots·약관 본문 해시와 서울 25개
-  자치구·경기 31개 시군의 개별 등록은 남았다.
+- 서울특별시 공고 제2025-2774호는 아파트 부지 142.22㎢ 재지정과 정비사업 후보지 8곳
+  446,779.3㎡ 신규 지정을 별도 효력 구간으로 분리했다. 공식 PDF 15쪽 전부를 렌더링해
+  확인했지만 권리 승인 전 원문은 보존하지 않았다.
+- 경기도보 제8034호의 경기도 공고 제2026-1792호 40~42쪽에서 용인 기흥구·화성 동탄구·
+  구리시 170.50㎢의 공고번호·기간·아파트 한정·전체 면적 기준·지정도를 확인했다. 역시
+  권리 승인 전 원문은 보존하지 않았다.
+- 전수성 하한 감사에서 서울 공식 현황표 묶음행 31개 중 3개만 대응해 최소 28개가 남았고,
+  경기도 2026-04-02 공식 현황표 지정 수단 25개 중 1개만 대응해 최소 24개가 남았다.
+  현황표는 누락 탐지용 색인이므로 이 수치를 최근 10년 전국 전수 수량으로 보지 않는다.
+- 출처 권리는 역할이 섞인 기관·본문·첨부를 분리했다. 2026-07-17에 12개 공식 호스트의
+  robots와 주요 권리 페이지를 임시 관찰하고 API 신청 조건과 robots 상태를 구분했다.
+  응답 바이트를 보존하지 않아 정책·약관 해시 열은 비워 두었으며, 서울 25개 자치구·경기
+  31개 시군의 개별 등록도 남았다.
 
 ## fail-closed 원칙
 
@@ -96,16 +115,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/research/extract
 manifest_cutoff: 2026-07-10T23:59:59+09:00
 checked_on: 2026-07-17
 row_counts:
-  policy_events: 89
-  policy_event_relations: 29
-  designation_instruments: 44
+  policy_events: 105
+  policy_event_relations: 42
+  designation_instruments: 45
   designation_evidence_links: 7
   source_rights: 21
   tax_rule_cards: 4
   immutable_gazette_captures: 4
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
   cutoff_manifest_artifacts: 12
-  cutoff_manifest_sha256: 6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee
+  cutoff_manifest_sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
   cutoff_hash_byte_policy: UTF8_LF_TEXT_AND_RAW_PDF_BYTES
 files:
   policy-events.csv: PARTIAL
@@ -123,16 +142,16 @@ known_gaps:
     statement: gazette_keyword_search_is_verification_not_exhaustive_enumerator
   - id: GAP-NATIONWIDE-POLICY-REVERSE-ENUMERATION
     status: PARTIAL
-    statement: official_agency_reverse_enumeration_not_complete
+    statement: official_agency_reverse_enumeration_not_complete_molit_title_index_had_7_of_23_missing_before_this_audit
   - id: GAP-REMAINING-IMMUTABLE-SOURCE-CAPTURE
     status: PARTIAL
-    statement: 85_of_89_policy_events_not_immutably_captured
+    statement: 101_of_105_policy_events_not_immutably_captured
   - id: GAP-NATIONWIDE-PARCEL-BOUNDARY-NORMALIZATION
     status: PARTIAL
     statement: parcel_drawing_and_admin_code_normalization_not_complete
   - id: GAP-DESIGNATION-EXTENSION-ENUMERATION
     status: PARTIAL
-    statement: nationwide_extension_instruments_not_enumerated
+    statement: seoul_status_missing_grouped_rows_at_least_28_and_gyeonggi_2026_04_02_status_missing_instruments_at_least_24_nationwide_history_not_enumerated
   - id: GAP-ROBOTS-TERMS-EVIDENCE
     status: PARTIAL
     statement: robots_and_terms_body_hashes_not_captured
@@ -158,6 +177,9 @@ rhwp:
   output_tree_policy: EXPECTED_PAGES_ONLY
   unit_tests_passed: 25
   integration_pages: {text: 18, markdown: 18}
+  government_hwp_temporary_reextractions:
+    - {document: molit_notice_2018_1086, bytes: 12288, text_pages: 2, markdown_pages: 2}
+    - {document: molit_notice_2018_1090, bytes: 18944, text_pages: 2, markdown_pages: 2}
   corrupt_hwp_failed_closed: true
   required_ci: WINDOWS_POWERSHELL_5_1_UNIT_AND_LOCAL_REDIRECT
   official_integration_ci: MANUAL_NON_BLOCKING

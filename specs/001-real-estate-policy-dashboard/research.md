@@ -12,8 +12,11 @@
 작업 대상이다. 따라서 이 문서는 `조사 체계와 초기 검증 스냅샷`이며 완성된
 법률 데이터베이스라고 주장하지 않는다.
 
-2026-07-17 감사에서는 정책 사건을 89건, 규제 지정 수단(공고)을 44건, 출처 권리 행을
-21건으로 정규화했다. 기획재정부 투기지역 전자관보 4건은 원문 PDF·SHA-256을 불변
+2026-07-17 감사에서는 정책 사건을 105건, 사건 관계를 42건, 규제 지정 수단(공고)을
+45건, 출처 권리 행을 21건으로 정규화했다. 국토교통부 `조정대상지역` 제목 색인
+23건의 역대조에서 기존 누락 전매행위 제한 공고 7건을 추가했고, 2016-11-03·
+2017-06-19의 잘못된 일반 효력일을 실제 부령 시행일로 교정했다. 기획재정부 투기지역
+전자관보 4건은 원문 PDF·SHA-256을 불변
 보존하고 모든 페이지를 렌더링해 확인했다. 그 밖의 정책·지정 원문과 전국 경계 자료는
 아직 부분 상태이므로 T001~T003과 T006은 완료 처리하지 않는다.
 
@@ -102,7 +105,7 @@ verification_status: VERIFIED | PARTIAL | PENDING_REVIEW
 cutoff_manifest:
   path: research-data/cutoff-manifest.csv
   artifact_rows: 12
-  sha256: 6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee
+  sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
   approval_status: PENDING_T006
 known_gaps:
   - id: stable-gap-id
@@ -296,9 +299,9 @@ PostgreSQL 클러스터에서 관리한다.
 research_date: 2026-07-10
 audit_updated_on: 2026-07-17
 row_counts:
-  policy_events: 89
-  policy_event_relations: 29
-  designation_instruments: 44
+  policy_events: 105
+  policy_event_relations: 42
+  designation_instruments: 45
   designation_evidence_links: 7
   source_rights: 21
   tax_rule_cards: 4

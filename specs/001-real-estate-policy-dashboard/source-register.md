@@ -38,6 +38,13 @@
 | `API_KEY_REQUIRED` | 키 발급과 제공기관 이용조건 준수 |
 | `ROBOTS_POLICY_NOT_CAPTURED` | robots 원문 URL·확인 시각·해시를 아직 보존하지 않아 세부 허용·차단을 주장하지 않음 |
 | `ROBOTS_POLICY_NOT_FOUND` | 명시 정책을 찾지 못함. 허용으로 해석하지 않음 |
+| `OBSERVED_ALLOWED` | 조사 시 허용 규칙을 관찰했지만 응답 바이트를 보존하지 않아 해시 증거가 없음 |
+| `OBSERVED_PATH_RULES` | 허용·차단 경로 규칙을 관찰했으나 대상 URL마다 다시 판정해야 함 |
+| `OBSERVED_DEFAULT_DISALLOW_ALLOWLIST` | 기본 차단과 허용 목록을 관찰했으며 허용 목록 밖 접근은 중단함 |
+| `OBSERVED_NOT_FOUND` | 404 또는 오류 페이지로 정책 파일을 찾지 못했으며 허용으로 해석하지 않음 |
+| `OBSERVED_REDIRECT_LOOP` | 동일 URL 리디렉션 반복으로 정책 파일을 판독하지 못함 |
+| `OBSERVED_SOFT_BLOCK` | HTTP 200 응답이었지만 실제 본문은 보안 차단 화면이었음 |
+| `OBSERVED_CRAWL_DELAY_30` | 일반 허용과 30초 crawl-delay를 관찰했으나 이용 허락을 뜻하지 않음 |
 
 ## 2. 기관·출처 레지스트리
 
@@ -68,12 +75,47 @@
 공동활용 제한·신청 문의는 044-200-6797, 기술 문의는 02-2109-6446, 국세 상담은 126,
 행안부 주소 API 문의는 1588-0061로 안내됐다.
 
+### 2.1 robots·권리 페이지 임시 관찰
+
+2026-07-17에 공식 호스트의 robots와 권리 페이지를 직접 확인했다. 아래 해시는 조사 당시
+응답을 식별하는 관찰값일 뿐, 응답 바이트를 저장소에 보존하지 않았으므로
+`source-rights.csv`의 증거 해시 열에는 넣지 않았다. 404·오류 HTML·소프트 차단 본문도
+정상 정책 파일의 해시로 승격하지 않는다.
+
+| 호스트 | 공식 robots URL | 관찰 결과 | 임시 관찰 SHA-256 |
+|---|---|---|---|
+| 국가법령정보센터 | [robots.txt](https://www.law.go.kr/robots.txt) | 전체 허용 | `bdf6e8d2c4792183feb41f8b1440551715d4564d5156cc74e67c54648d013133` |
+| 국가법령정보 공동활용 | [robots.txt](https://open.law.go.kr/robots.txt) | missing HTML로 리디렉션되어 정책 파일 없음 | 오류 본문 `b96a79099b5e79da9a777c8c0fad4fce564e565623ac5a809a9fcbc6200992b8` |
+| 전자관보 | [robots.txt](https://www.gwanbo.go.kr/robots.txt) | 404 HTML, 허용으로 해석하지 않음 | 오류 본문 `552bca184d3c9653ed314c841a187d6576cc27fcf3bb47857eedff15ec752b9d` |
+| 국토교통부 | [robots.txt](https://www.molit.go.kr/robots.txt) | 동일 URL 307 리디렉션 반복 | 없음 |
+| 재정경제부 | [robots.txt](https://www.mofe.go.kr/robots.txt) | 검색·설문 일부 제한, 관련 `/lw`·`/mn` 경로 허용 | `9539f48ca75eeeb0735b22f0a9f7c42ff62d3c90a432c60bc6e3a0e80fcf97e1` |
+| 국세청 | [robots.txt](https://www.nts.go.kr/robots.txt) | 전체 허용 | `1cbdbc6504be7abe1267d01d7f565bfcfe5851ba3f6a3754d1d61c8f8a2c6aa3` |
+| 국세법령정보시스템 | [robots.txt](https://taxlaw.nts.go.kr/robots.txt) | `/is` 일부 제한, 관련 `/qt`·`/br` 경로 허용 | `22b6f3c35bc5895c76b468219061c9a44f680cfbb9928390b98f673fcebf3790` |
+| 행정안전부 | [robots.txt](https://www.mois.go.kr/robots.txt) | 전체 허용 | `eaeaa8d3511d1622227d89707d995b8b1f0902f5b86fdbe58882d1cef260d4d7` |
+| 서울특별시 | [robots.txt](https://www.seoul.go.kr/robots.txt) | 기본 차단, `/news`·`/helper` 등 허용 목록 | `bb9fd745598d92b5c816b4ec38170f5db3b5436c1ce7ebae1c2d1154721b80f9` |
+| 경기도 | [robots.txt](https://www.gg.go.kr/robots.txt) | HTTP 200이지만 보안 차단 HTML | 차단 본문 `e21590f7c177157a33a4730c0f054bb952a9fd98a1f2859a159a997e872a4493` |
+| 주소정보누리집 | [robots.txt](https://business.juso.go.kr/robots.txt) | `/jsi`·`/jsm` 선택 차단 | `251a080dc3287759823c84f608591aeea81257daaa737911a25b31ac94d8ca74` |
+| 브이월드 | [robots.txt](https://www.vworld.kr/robots.txt) | 일반 허용, crawl-delay 30 | `e4f19a52c708e97a0220b454485b1535c3f94b493c161e5212fff7c0adbf7b01` |
+
+권리·이용조건은 robots와 별도로 확인했다. 국가법령정보센터의
+[법적효력·저작권](https://www.law.go.kr/lawPetitionForm.do?menuId=13&subMenuId=79),
+[공동활용 안내](https://open.law.go.kr/LSO/information/guide.do), 전자관보
+[저작권정책](https://www.gwanbo.go.kr/user/info/copyright.do), 재정경제부
+[저작권정책](https://www.mofe.go.kr/mn/siteguide/drmp.do?menuNo=2030000), 국세청
+[저작권정책](https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=8169&mi=6791),
+행정안전부 [저작권정책](https://www.mois.go.kr/frt/sub/a08/copyrightPolicy/screen.do), 서울시
+[저작권정책](https://www.seoul.go.kr/helper/copyright.do), 브이월드
+[Geocoder 안내](https://www.vworld.kr/dev/v4dv_geocoderguide2_s001.do)를 확인했다. 개별
+공공누리 유형과 제3자 권리는 문서마다 다시 판정한다. 국토교통부는 리디렉션 반복, 경기도는
+보안 차단 HTML 때문에 권리 본문을 확보하지 못했고, Juso API 목록은 약관이 아니어서
+저장·재배포 허용 범위는 계속 `REVIEW_REQUIRED`다.
+
 ## 3. 운영 주소 정규화 후보
 
 | 안정 키 | 후보 | 공식 기능·한도 | 정확도·저장 경계 | 장애 시 경로 | 운영 판단 |
 |---|---|---|---|---|---|
 | `juso.search-api` | 행안부 주소기반산업지원서비스 검색 API | [현재 API 목록](https://business.juso.go.kr/jst/jstAddressApiList). 정량 제한 없음 안내, 과도 호출 시 IP 차단 가능 | 도로명↔지번·건물관리번호 검색. 좌표를 반환하지 않으며 도로명·지번은 항상 1:1이 아니다. PNU 직접 반환과 결과 저장·재배포 조건은 미확정 | 주소정보누리집 수동 검색, 1588-0061 | 별도 신청 후 sandbox 검증 전 `REVIEW_REQUIRED`; T101 결정 필요 |
-| `juso.coordinate-api` | 행안부 좌표제공 API | 검색 API와 별도 신청. [공식 한도 답변](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=126550&currentPage=49&keyword=&noticeMgtSn=126550&noticeType=QNA&noticeTypeTmp=QNA&page=&searchType=)에 따라 5초당 10건 | [좌표 설명](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=128137&currentPage=64&keyword=&noticeMgtSn=128137&noticeType=QNA&noticeTypeTmp=QNA&page=&searchType=)의 UTM-K(GRS80). 비공개 시설은 좌표가 없을 수 있고 좌표→PNU·보존 조건은 미확정 | 주소정보누리집, 1588-0061 | `REVIEW_REQUIRED`; 속도 제한·백오프 필수 |
+| `juso.coordinate-api` | 행안부 좌표제공 API | 검색 API와 별도 신청. [공식 한도 답변](https://business.juso.go.kr/api/jsi/qna-board/126550/126550)에 따라 5초당 10건 | [좌표 설명](https://business.juso.go.kr/api/jsi/qna-board/128137/128137)의 UTM-K(GRS80). [누락 가능성 안내](https://business.juso.go.kr/api/jsi/qna-board/101585/101585)처럼 비공개 시설은 좌표가 없을 수 있고 좌표→PNU·보존 조건은 미확정 | 주소정보누리집, 1588-0061 | `REVIEW_REQUIRED`; 속도 제한·백오프 필수 |
 | `vworld.geocoder` | 브이월드 Geocoder | [공식 Geocoder 레퍼런스](https://www.vworld.kr/dev/v4dv_geocoderguide2_s001.do), 일 최대 40,000건 | 주소→좌표, 기본 EPSG:4326과 선택 좌표계 지원. 결과의 별도 저장장치·DB 저장 금지, 정확도 보장·가용성 SLA 미공개 | 브이월드 웹, 02-1661-0115 | 영구 snapshot·RAG·공개는 `BLOCKED`/`NO_PERSISTENT_STORAGE`; 메모리 내 일회성 사용도 T101 별도 승인 전 비활성 |
 
 운영 제공자는 도로명 주소, 지번, 건물관리번호, 좌표와 PNU를 한 API가 모두 보장한다고
@@ -101,7 +143,7 @@
 
 ## 5. 원문 캡처 증거
 
-2024년 주택업무편람과 2017~2020년 규제지역 공고 HWP 6건은 연혁표·법적 전환·공고번호를
+2024년 주택업무편람과 2017~2020년 규제지역 공고 HWP 7건은 연혁표·법적 전환·공고번호를
 교차검증하기 위해 2026-07-17에 한 번 다운로드했다. 파일은 작업용 임시 디렉터리에서만
 사용하고 저장소에는 보존하지 않았으므로, 아래 해시는 조사 당시의 응답을 식별할 뿐 불변 원문
 캡처 게이트를 충족하지 않는다.
@@ -124,11 +166,14 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 - Windows PowerShell 5.1 단위·로컬 302 기본 경로: 필수 CI, 공식 릴리스 통합: 수동 CI
 - 국토교통부공고 제2018-1086호 HWP 임시 재추출: 기존 12,288바이트·SHA-256과 일치,
   text 2페이지·Markdown 2페이지, `국토교통부공고 제2018-1086호`·`광명시`·`하남시` 확인
+- 국토교통부공고 제2018-1090호 HWP 신규 임시 추출: 18,944바이트, text 2페이지·
+  Markdown 2페이지, 문서번호·구리시·안양시 동안구·광교택지개발지구·공고일부터 효력 확인
 - archive·실행 파일·생성 HWP·추출물: 통합검증 후 임시 디렉터리에서 삭제
 - 라이선스: MIT, 프로젝트 고지 파일 `THIRD_PARTY_NOTICES.md`에 기록
 
-아래 정부 HWP 6건 중 제2018-1086호 한 건만 새 파이프라인으로 임시 재추출했다. 나머지 5건은
-아직 `rhwp` 재대조 전이며, 한 건의 원문·추출물도 불변 보존하지 않았다. 기존 임시 해시와
+아래 정부 HWP 7건 중 제2018-1086호와 제2018-1090호 두 건을 새 파이프라인으로 임시
+추출·재대조했다. 나머지 5건은 아직 `rhwp` 재대조 전이며, 한 건의 원문·추출물도 불변
+보존하지 않았다. 기존 임시 해시와
 권리·불변 원문 게이트는 그대로이고 사람의 법적 효력 검수를 대체하지 않는다.
 
 | 문서 | 공식 게시 페이지 | 응답 바이트 | SHA-256 | 보존 상태 | 사용 역할 |
@@ -138,6 +183,7 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 | 국토교통부공고 제2018-1086호 HWP | [투기과열지구 지정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15658) | 12,288 | `fea461b2ce654ac9fde7aef15b487435af59cae86ea46e0bb13800846ea62e9a` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·scope 교차검증 |
 | 국토교통부공고 제2018-1088호 HWP | [조정대상지역 지정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15659) | 14,336 | `ec77c267066adc7c7439549e7355b0d7f35ec24c27ee898cdba4040a30abff66` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·scope 교차검증 |
 | 국토교통부공고 제2018-1089호 HWP | [조정대상지역 지정 해제](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15660) | 10,240 | `12ba74533969f4f7e495bbc18967505d40470504d75519aa5e05ee20db9ca7f0` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·scope 교차검증 |
+| 국토교통부공고 제2018-1090호 HWP | [조정대상지역 전매행위 제한기간 지정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15661) | 18,944 | `7f3a3772fd0a634ca74a3a45c90ae34701d366aaeac5bec200c220ea40ed8c08` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·구리·안양 동안·광교 범위·공고일 효력 교차검증 |
 | 국토교통부공고 제2019-1540호 HWP | [조정대상지역 조정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=16220) | 11,264 | `465a838dd69a8399da7542bc51e985599cc2a5f90b7ba49b5dc33722d6a66afa` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·해제·유지 scope 교차검증 |
 | 국토교통부공고 제2020-877호 HWP | [제2020-828호 정정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17020) | 19,968 | `b2801068c4eb5b415a6ddddb544ad510e1affbe0d9ceb2efc19923a198b6d173` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 화성 누락·용인/광주 제외 범위 정정 교차검증 |
 
@@ -160,6 +206,37 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 초 단위 수집 시각과 응답 헤더는 당시 보존하지 않았으므로 `DATE_ONLY`, `NOT_RETAINED`로
 기록하며 T002 완료 증거로 승격하지 않는다.
 
+### 5.3 서울·경기 토지거래허가구역 원문 임시 검증
+
+2026-07-17에 서울시와 경기도의 공식 PDF를 임시 다운로드해 모든 관련 페이지를 렌더링하고
+공고번호·효력기간·범위·면적 기준·지정도를 대조했다. 문서별 권리 승인이 끝나지 않았으므로
+원문과 렌더링 이미지는 저장소에 보존하지 않았다. 아래 해시는 조사 당시 받은 응답을 식별할
+뿐 불변 캡처나 공급자 체크섬이 아니다.
+
+| 문서 | 공식 부모·원문 | 바이트 | 관련 페이지 검수 | 임시 응답 SHA-256 | 보존 상태 |
+|---|---|---:|---|---|---|
+| 서울특별시 공고 제2025-2774호 | [서울시 지정 현황](https://land.seoul.go.kr/land/other/appointStatusSeoul.do) · [공식 PDF](https://land.seoul.go.kr/land/common/downloadFileNm.do?filePath=%2Fother%2F&fileName=appointStatus_25_18.pdf) | 1,587,323 | 15/15쪽 렌더·육안 확인 | `fd9eb2c5ba1560168cd6ae2ee24736101206fe6fbc4d1fafd251514ffe3c81c8` | `TEMPORARY_NOT_RETAINED` |
+| 경기도 공고 제2026-1792호, 경기도보 제8034호 | [경기도보](https://www.gg.go.kr/gg-dobo) · [공식 PDF](https://www.gg.go.kr/uploads/BOARD/2026/06/20260630095414_NG21sBX5thRF.pdf) | 1,652,610 | 전체 96쪽 중 공고 40~42쪽 렌더·육안 확인 | `9145052676ae75f57d24b8c01e8da4b0a87899c989f630f535369edee1c539ac` | `TEMPORARY_NOT_RETAINED` |
+
+서울 공고는 142.22㎢ 아파트 부지의 재지정과 정비사업 후보지 8곳 446,779.3㎡의 신규
+지정을 서로 다른 효력 구간으로 분리했다. 경기도 공고는 용인 기흥구·화성 동탄구·구리시
+170.50㎢와 도시지역·도시지역 외 면적 기준, 아파트 한정 조건을 확인했다. 경기도보 페이지의
+공공누리 제3유형 표시는 확인했지만, 변경금지 조건 아래 원문 보존·전문 공개·RAG 색인을
+각각 승인해야 하므로 두 문서 모두 현재 운영 상태는 `REVIEW_REQUIRED`다.
+
+같은 날 공식 현황표를 누락 탐지용으로 대조했다. 서울시 현황표의 지정 묶음행 31개 중 현재
+`designations.csv`에 대응하는 행은 제2025-2774호의 두 범위와 국토교통부공고
+제2025-1219호 등 3개뿐이어서 최소 28개 묶음행이 남는다. 경기도의 2026-04-02 기준
+현황표는 합계·소계를 제외한 지정 수단 25개 중 제2025-1219호 1개만 대응해 최소 24개가
+남는다. 이 수치는 공식 현황표의 묶음행 기준 하한이며, 최근 10년 지정·연장·정정·해제의
+전국 전수 수량으로 해석하지 않는다.
+
+- 서울시 현황 HTML: 111,729바이트,
+  임시 SHA-256 `3c34ea15f37a8b9e5d6017b639fa429a81a4d64ed8dec1e2d5f6d9c157e3f058`
+- 경기부동산포털 2026-04-02 현황 HTML: 60,611바이트,
+  임시 SHA-256 `4de78b4c57f3bba04a5509d9721f800091dbb4543a3a3fdca56fe738903b6ebd`
+- 두 HTML 모두 `TEMPORARY_NOT_RETAINED`; 권리 승인·불변 캡처를 대체하지 않음
+
 이 대조에서 2020-12-18 창원시 의창구는 조정대상지역이 아니라 별도 투기과열지구
 공고 제2020-1649호의 범위이고, 같은 날 조정대상지역 공고 제2020-1650호의 창원 범위는
 성산구임을 확인해 매니페스트를 정정했다.
@@ -167,6 +244,30 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 또한 2016-11-03·2017-06-19 이력은 당시 주택공급 규칙상 청약 조정대상지역 선행 상태로
 분리했다. 법률 제14866호 부칙 제2조와 공고 제2017-1305호에 따라 40개 예정지는 법 시행일인
 2017-11-10에 주택법 제63조의2의 법정 조정대상지역으로 지정된 것으로 간주된다.
+
+### 5.4 전국 정책 사건 역대조 보강
+
+국토교통부의 `조정대상지역` 제목 공식 색인 23건을 현재 매니페스트와 역대조했다. 감사 전
+없던 전매행위 제한기간 지정 공고 7건을 다음과 같이 추가했다.
+
+| 효력일 | 문서번호 | 공식 상세 | 원문 상태 |
+|---|---|---|---|
+| 2017-11-10 | 국토교통부공고 제2017-1544호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15360) | HWP 미캡처 |
+| 2018-08-28 | 국토교통부공고 제2018-1090호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15661) | `rhwp` 임시 추출, 불변 미보존 |
+| 2018-12-31 | 국토교통부공고 제2018-1768호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15911) | HWP 미캡처 |
+| 2020-02-21 | 국토교통부공고 제2020-198호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17016) | HWP 미캡처 |
+| 2020-06-19 | 국토교통부공고 제2020-829호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17019) | HWP 미캡처 |
+| 2020-11-20 | 국토교통부공고 제2020-1522호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17022) | HWP 미캡처 |
+| 2020-12-18 | 국토교통부공고 제2020-1651호 | [공식 상세](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17025) | HWP 미캡처 |
+
+또한 2016-11-03과 2017-06-19를 일반적인 효력일로 보던 기존 행을 각각
+[국토교통부령 제372호](https://www.law.go.kr/LSW/nwRvsLsInfoR.do?chrIdx=0&lsiSeq=187555&pageIndex=1&sortIdx=0)의
+2016-11-15 공포·시행과
+[국토교통부령 제432호](https://www.law.go.kr/nwRvsLsInfoR.do?chrIdx=0&lsiSeq=194694&pageIndex=1&sortIdx=0)의
+2017-07-03 공포·시행으로 교정했다. 공포와 효력 사건은 별도 행으로 두고 관계 테이블로
+연결했다. 이 좁은 공식 색인만으로도 감사 전 누락이 7/23이었고, 전자관보·국토교통부·
+재정경제부·행정안전부·국세청의 기간 전체 역방향 열거가 끝나지 않았으므로 T001은 계속
+미완료다.
 
 ## 6. 초기 사실 카드와 남은 증거
 
@@ -180,11 +281,23 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 
 ### `FACT.LAND_PERMIT.NEW_AREAS.2026-07-05`
 
-- 주장: 구리시·용인시 기흥구·화성시 동탄구 170.5㎢의 아파트 대상 신규
-  토지거래허가구역이 2026-07-05부터 2027-12-31까지 적용된다는 설명
-- 설명 근거: 경기도 보도자료 번호 70759
+- 주장: 구리시·용인시 기흥구·화성시 동탄구 170.50㎢의 아파트 대상 신규
+  토지거래허가구역이 2026-07-05부터 2027-12-31까지 적용됨
+- 법적 근거: 경기도보 제8034호의 경기도 공고 제2026-1792호 40~42쪽
+- 확인 완료: 공고번호·공고일·효력기간·대상·전체 용도지역 면적 기준·지정도
 - 상태: `PARTIAL`
-- 남은 증거: 경기도 법적 공고번호, 도면·필지/아파트 조서, 전체 용도지역 면적 조건과 이용기간
+- 남은 증거: 불변 원문 보존 권리 승인, 행정구역 코드 정규화, 이용의무 세부기간
+
+### `FACT.LAND_PERMIT.SEOUL.2025-2774`
+
+- 주장 1: 강남구·서초구·송파구·용산구의 공고 대상 동 아파트 부지 142.22㎢를
+  2025-10-01부터 2026-12-31까지 재지정
+- 주장 2: 신속통합기획 주택재개발 후보지 7곳과 공공재개발 후보지 1곳,
+  합계 446,779.3㎡를 2025-09-30부터 2026-08-30까지 신규 지정
+- 법적 근거: 서울특별시 공고 제2025-2774호 본문과 붙임 1·2
+- 확인 완료: 공고번호·공고일·두 효력기간·대상·면적 기준·15쪽 지정도
+- 상태: `PARTIAL`
+- 남은 증거: 불변 원문 보존 권리 승인, PNU·행정구역 코드 정규화
 
 ### `FACT.CGT.SURCHARGE.SUSPENSION.END.2026-05-09`
 
@@ -226,17 +339,24 @@ rhwp_extraction:
   markdown_pages: 18
   input_and_output_hashes_verified: true
   extraction_retention: TEMPORARY_NOT_RETAINED
-  government_hwp_temporary_reextraction_count: 1
+  government_hwp_temporary_reextraction_count: 2
   immutable_capture_completed: false
   government_hwp_evidence:
-    document: molit_notice_2018_1086
-    bytes: 12288
-    sha256: fea461b2ce654ac9fde7aef15b487435af59cae86ea46e0bb13800846ea62e9a
-    matched_previous_local_observation: true
-    text_pages: 2
-    markdown_pages: 2
-    content_checks: [notice_2018_1086, gwangmyeong, hanam]
-    retention: TEMPORARY_NOT_RETAINED
+    - document: molit_notice_2018_1086
+      bytes: 12288
+      sha256: fea461b2ce654ac9fde7aef15b487435af59cae86ea46e0bb13800846ea62e9a
+      matched_previous_local_observation: true
+      text_pages: 2
+      markdown_pages: 2
+      content_checks: [notice_2018_1086, gwangmyeong, hanam]
+      retention: TEMPORARY_NOT_RETAINED
+    - document: molit_notice_2018_1090
+      bytes: 18944
+      sha256: 7f3a3772fd0a634ca74a3a45c90ae34701d366aaeac5bec200c220ea40ed8c08
+      text_pages: 2
+      markdown_pages: 2
+      content_checks: [notice_2018_1090, guri, anyang_dongan, gwanggyo, effective_on_announcement]
+      retention: TEMPORARY_NOT_RETAINED
 temporary_research_evidence:
   - document: molit_2024_housing_handbook
     bytes: 7250197
@@ -263,6 +383,11 @@ temporary_research_evidence:
     sha256: 12ba74533969f4f7e495bbc18967505d40470504d75519aa5e05ee20db9ca7f0
     retention: TEMPORARY_NOT_RETAINED
     role: LEGAL_EFFECT_CROSSCHECK_ONLY
+  - document: molit_notice_2018_1090
+    bytes: 18944
+    sha256: 7f3a3772fd0a634ca74a3a45c90ae34701d366aaeac5bec200c220ea40ed8c08
+    retention: TEMPORARY_NOT_RETAINED
+    role: LEGAL_EFFECT_CROSSCHECK_ONLY
   - document: molit_notice_2019_1540
     bytes: 11264
     sha256: 465a838dd69a8399da7542bc51e985599cc2a5f90b7ba49b5dc33722d6a66afa
@@ -273,6 +398,47 @@ temporary_research_evidence:
     sha256: b2801068c4eb5b415a6ddddb544ad510e1affbe0d9ceb2efc19923a198b6d173
     retention: TEMPORARY_NOT_RETAINED
     role: LEGAL_EFFECT_CROSSCHECK_ONLY
+  - document: seoul_notice_2025_2774
+    bytes: 1587323
+    pages: 15
+    rendered_pages_reviewed: 15
+    sha256: fd9eb2c5ba1560168cd6ae2ee24736101206fe6fbc4d1fafd251514ffe3c81c8
+    retention: TEMPORARY_NOT_RETAINED
+    role: LEGAL_EFFECT_AND_BOUNDARY_CROSSCHECK_ONLY
+  - document: gyeonggi_gazette_8034_notice_2026_1792
+    bytes: 1652610
+    pages: 96
+    rendered_notice_pages_reviewed: [40, 41, 42]
+    sha256: 9145052676ae75f57d24b8c01e8da4b0a87899c989f630f535369edee1c539ac
+    retention: TEMPORARY_NOT_RETAINED
+    role: LEGAL_EFFECT_AND_BOUNDARY_CROSSCHECK_ONLY
+  - document: seoul_land_permit_status_index
+    bytes: 111729
+    grouped_rows: 31
+    represented_grouped_rows: 3
+    missing_grouped_rows_lower_bound: 28
+    sha256: 3c34ea15f37a8b9e5d6017b639fa429a81a4d64ed8dec1e2d5f6d9c157e3f058
+    retention: TEMPORARY_NOT_RETAINED
+    role: STATUS_INDEX_COMPLETENESS_AUDIT_ONLY
+  - document: gyeonggi_land_permit_status_2026_04_02
+    bytes: 60611
+    instrument_rows_excluding_totals: 25
+    represented_instrument_rows: 1
+    missing_instrument_rows_lower_bound: 24
+    sha256: 4de78b4c57f3bba04a5509d9721f800091dbb4543a3a3fdca56fe738903b6ebd
+    retention: TEMPORARY_NOT_RETAINED
+    role: STATUS_INDEX_COMPLETENESS_AUDIT_ONLY
+national_policy_audit:
+  policy_event_rows: 105
+  policy_event_relation_rows: 42
+  molit_adjustment_title_index_rows: 23
+  resale_restriction_notices_missing_before_audit: 7
+  resale_restriction_notices_added: 7
+  corrected_false_effective_dates:
+    - {previous: 2016-11-03, corrected_promulgation_and_effective: 2016-11-15, instrument: MOLIT_ORDINANCE_372}
+    - {previous: 2017-06-19, corrected_promulgation_and_effective: 2017-07-03, instrument: MOLIT_ORDINANCE_432}
+  nationwide_reverse_enumeration_complete: false
+  task_T001_complete: false
 immutable_gazette_evidence:
   count: 4
   manifest: research-data/captures/manifest.csv
@@ -293,6 +459,22 @@ rights:
   uncaptured_status: NOT_CAPTURED
   unknown_default: REVIEW_REQUIRED
   gazette_content: ALLOWED_WITH_SOURCE_AND_INTEGRITY
+  observed_on: 2026-07-17
+  observation_retention: TEMPORARY_NOT_RETAINED
+  policy_hashes_persisted: false
+  robots_observations:
+    law_go_kr: {status: OBSERVED_ALLOWED, sha256: bdf6e8d2c4792183feb41f8b1440551715d4564d5156cc74e67c54648d013133}
+    open_law_go_kr: {status: OBSERVED_NOT_FOUND, error_body_sha256: b96a79099b5e79da9a777c8c0fad4fce564e565623ac5a809a9fcbc6200992b8}
+    gwanbo_go_kr: {status: OBSERVED_NOT_FOUND, error_body_sha256: 552bca184d3c9653ed314c841a187d6576cc27fcf3bb47857eedff15ec752b9d}
+    molit_go_kr: {status: OBSERVED_REDIRECT_LOOP}
+    mofe_go_kr: {status: OBSERVED_PATH_RULES, sha256: 9539f48ca75eeeb0735b22f0a9f7c42ff62d3c90a432c60bc6e3a0e80fcf97e1}
+    nts_go_kr: {status: OBSERVED_ALLOWED, sha256: 1cbdbc6504be7abe1267d01d7f565bfcfe5851ba3f6a3754d1d61c8f8a2c6aa3}
+    taxlaw_nts_go_kr: {status: OBSERVED_PATH_RULES, sha256: 22b6f3c35bc5895c76b468219061c9a44f680cfbb9928390b98f673fcebf3790}
+    mois_go_kr: {status: OBSERVED_ALLOWED, sha256: eaeaa8d3511d1622227d89707d995b8b1f0902f5b86fdbe58882d1cef260d4d7}
+    seoul_go_kr: {status: OBSERVED_DEFAULT_DISALLOW_ALLOWLIST, sha256: bb9fd745598d92b5c816b4ec38170f5db3b5436c1ce7ebae1c2d1154721b80f9}
+    gg_go_kr: {status: OBSERVED_SOFT_BLOCK, error_body_sha256: e21590f7c177157a33a4730c0f054bb952a9fd98a1f2859a159a997e872a4493}
+    business_juso_go_kr: {status: OBSERVED_PATH_RULES, sha256: 251a080dc3287759823c84f608591aeea81257daaa737911a25b31ac94d8ca74}
+    vworld_kr: {status: OBSERVED_CRAWL_DELAY_30, sha256: e4f19a52c708e97a0220b454485b1535c3f94b493c161e5212fff7c0adbf7b01}
 address_candidates:
   juso_search: REVIEW_REQUIRED
   juso_coordinate:

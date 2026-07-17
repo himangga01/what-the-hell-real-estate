@@ -32,6 +32,8 @@
 - [x] 2016·2017·2018·2019·2021 누락 규제 지정 수단(공고)을 `PARTIAL` 또는 `VERIFIED` 상태로 추가했다.
 - [x] 2016-11-03·2017-06-19 청약 조정대상지역 선행 상태와 2017-11-10 법정 조정대상지역 전환을 분리했다.
 - [x] 2018-08-28 공식 HWP에서 제2018-1086호·제2018-1088호·제2018-1089호와 적용 범위를 교차검증했다.
+- [x] 제2018-1090호 공식 HWP를 `rhwp`로 임시 추출해 문서번호·구리시·안양시 동안구·
+  광교택지개발지구·공고일부터 효력을 확인하고 원문 미보존 상태를 기록했다.
 - [x] 2019-11-08 제2019-1540호의 고양·남양주 유지 범위와 부산 3개 구 해제를 교차검증했다.
 - [x] 2020-06-19 제827호·제828호를 분리하고 2020-06-29 제877호 정정 사건을 추가했다.
 - [x] 2020-12-18 창원 의창구/성산구 규제 수단 혼합 오류를 제2020-1649호·제2020-1650호로 분리 정정했다.
@@ -39,7 +41,9 @@
 - [x] 기획재정부공고 제2017-114호·제2018-151호·제2022-189호·제2023-1호를 전자관보
   원문으로 확인하고 서울·세종 투기지역 효력 구간을 분리했다.
 - [x] 정책 사건 유형을 OpenAPI enum에 맞추고 합성돼 있던 발표·공포·시행·연장·해제 사건을
-  확인 가능한 범위에서 분리해 89건으로 정규화했다.
+  확인 가능한 범위에서 분리해 정책 사건 105건·사건 관계 42건으로 정규화했다.
+- [x] 국토교통부 `조정대상지역` 제목 색인 23건에서 감사 전 누락된 전매행위 제한기간
+  지정 공고 7건을 찾아 매니페스트에 추가했다.
 
 - [ ] 2016-07-10~2026-07-10의 전국 정책 목록을 기관별로 역방향 대조했다.
 - [ ] 발표·공포·시행·유예·연장·정정·해제·종료 사건을 중복 없이 분리했다.
@@ -166,12 +170,12 @@ blocking_gaps:
 completion_rule: all_required_human_approvals_and_hashes_present
 automated_research_progress:
   molit_2024_handbook_crosscheck: complete
-  confirmed_2018_notice_numbers: [2018-1086, 2018-1088, 2018-1089]
+  confirmed_2018_notice_numbers: [2018-1086, 2018-1088, 2018-1089, 2018-1090]
   separated_predecessor_and_statutory_adjustment_area: true
   corrected_mixed_instrument_2020_12_18: true
-  policy_event_rows: 89
-  policy_event_relation_rows: 29
-  designation_instrument_rows: 44
+  policy_event_rows: 105
+  policy_event_relation_rows: 42
+  designation_instrument_rows: 45
   designation_evidence_link_rows: 7
   source_right_rows: 21
   immutable_gazette_capture_count: 4
@@ -179,7 +183,7 @@ automated_research_progress:
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
   cutoff_manifest: research-data/cutoff-manifest.csv
   cutoff_manifest_artifact_rows: 12
-  cutoff_manifest_sha256: 6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee
+  cutoff_manifest_sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
   cutoff_manifest_approval_status: PENDING
   immutable_gazette_pages_render_reviewed: true
   rhwp_version: v0.7.18
@@ -198,6 +202,7 @@ automated_research_progress:
   rhwp_required_ci: WINDOWS_POWERSHELL_5_1_UNIT_AND_LOCAL_REDIRECT
   rhwp_official_integration_ci: MANUAL_NON_BLOCKING
   rhwp_extraction_retention: TEMPORARY_NOT_RETAINED
+  robots_hosts_observed_without_retained_bytes: 12
   rhwp_government_hwp_reextraction:
     document: molit_notice_2018_1086
     matched_previous_local_observation: true
