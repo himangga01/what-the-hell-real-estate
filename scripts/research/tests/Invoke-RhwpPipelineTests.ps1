@@ -295,6 +295,323 @@ Invoke-Test 'Tool entrypoint emits verified local metadata as JSON' {
     }
 }
 
+function New-FakeRhwpSession {
+    return [pscustomobject]@{
+        Path = 'fake-rhwp'
+        Version = 'v0.7.18'
+        ExecutableSha256 = ('A' * 64)
+        ArchiveSha256 = ('B' * 64)
+        ReleaseUrl = 'https://github.com/edwardkim/rhwp/releases/download/v0.7.18/fake.zip'
+        ChecksumUrl = 'https://github.com/edwardkim/rhwp/releases/download/v0.7.18/SHA256SUMS.txt'
+        WorkspacePath = $null
+        Temporary = $false
+    }
+}
+
+function Assert-NoExtractionStaging {
+    param([Parameter(Mandatory)] [string]$Parent)
+
+    $staging = @(Get-ChildItem -LiteralPath $Parent -Directory -Filter '.rhwp-extract-*')
+    Assert-Equal $staging.Count 0 "Extraction staging directory leaked below $Parent"
+}
+
+Invoke-Test 'Unsupported extension is rejected before tool resolution' {
+    $directory = New-TestDirectory -Prefix 'rhwp-extension-test-'
+    try {
+        $inputPath = Join-Path $directory 'sample.txt'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $probe = [pscustomobject]@{ Called = $false }
+        $resolver = {
+            $probe.Called = $true
+            throw 'resolver must not run'
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -ToolResolver $resolver
+        } '*.hwp extension*'
+        Assert-Equal $probe.Called $false 'Tool resolver ran before extension validation'
+        Assert-True (Test-Path -LiteralPath $inputPath) 'Input was deleted'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Invalid input created output'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-extension-test-'
+    }
+}
+
+Invoke-Test 'HWPX extraction stays disabled before compatibility evidence' {
+    $directory = New-TestDirectory -Prefix 'rhwp-hwpx-test-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwpx'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $probe = [pscustomobject]@{ Called = $false }
+        $resolver = {
+            $probe.Called = $true
+            throw 'resolver must not run'
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -ToolResolver $resolver
+        } '*.hwpx extraction is disabled*'
+        Assert-Equal $probe.Called $false 'Tool resolver ran before the HWPX gate'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Gated HWPX created output'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-hwpx-test-'
+    }
+}
+
+Invoke-Test 'Successful extraction writes page hashes and an auditable manifest' {
+    $directory = New-TestDirectory -Prefix 'rhwp-extract-success-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $session = New-FakeRhwpSession
+        $resolver = { $session }.GetNewClosure()
+        $runner = {
+            param([string]$Executable, [string[]]$Arguments)
+
+            $destination = $Arguments[3]
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            $extension = if ($Arguments[0] -ceq 'export-text') { 'txt' } else { 'md' }
+            Set-Content `
+                -LiteralPath (Join-Path $destination "sample_001.$extension") `
+                -Encoding UTF8 `
+                -Value 'page one'
+            Set-Content `
+                -LiteralPath (Join-Path $destination "sample_002.$extension") `
+                -Encoding UTF8 `
+                -Value 'page two'
+            return [pscustomobject]@{ ExitCode = 0; Output = @('ok') }
+        }
+
+        $manifest = Invoke-RhwpExtraction `
+            -InputPath $inputPath `
+            -OutputDirectory $output `
+            -Format both `
+            -ToolResolver $resolver `
+            -CommandRunner $runner
+        Assert-Equal $manifest.schema_version 1 'Wrong manifest schema'
+        Assert-Equal $manifest.tool.version 'v0.7.18' 'Wrong tool version'
+        Assert-Equal $manifest.outputs.Count 4 'Expected two text and two Markdown pages'
+        Assert-Equal `
+            $manifest.retention_status `
+            'TEMPORARY_NOT_RETAINED' `
+            'Wrong retention state'
+        Assert-Equal $manifest.manual_review_required $true 'Manual review flag is missing'
+        Assert-True (Test-Path -LiteralPath $inputPath) 'Input was deleted'
+
+        $manifestPath = Join-Path $output 'rhwp-extraction-manifest.json'
+        Assert-True (Test-Path -LiteralPath $manifestPath) 'Manifest file is missing'
+        $persisted = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        Assert-Equal $persisted.input.sha256 (Get-FileHash -LiteralPath $inputPath -Algorithm SHA256).Hash 'Input hash mismatch'
+        foreach ($record in $persisted.outputs) {
+            $path = Join-Path $output ($record.relative_path -replace '/', '\')
+            Assert-Equal `
+                $record.sha256 `
+                (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash `
+                "Output hash mismatch for $($record.relative_path)"
+        }
+        Assert-NoExtractionStaging -Parent $directory
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-extract-success-'
+    }
+}
+
+function Invoke-FailClosedExtractionTest {
+    param(
+        [Parameter(Mandatory)] [string]$Prefix,
+        [Parameter(Mandatory)] [scriptblock]$Runner,
+        [Parameter(Mandatory)] [string]$ExpectedError
+    )
+
+    $directory = New-TestDirectory -Prefix $Prefix
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $session = New-FakeRhwpSession
+        $resolver = { $session }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -Format text `
+                -ToolResolver $resolver `
+                -CommandRunner $Runner
+        } $ExpectedError
+        Assert-True (Test-Path -LiteralPath $inputPath) 'Failed extraction deleted input'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Failed extraction published output'
+        Assert-NoExtractionStaging -Parent $directory
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix $Prefix
+    }
+}
+
+Invoke-Test 'Parser command failure does not publish output' {
+    Invoke-FailClosedExtractionTest `
+        -Prefix 'rhwp-parser-failure-' `
+        -ExpectedError '*export-text failed with exit code 2*' `
+        -Runner {
+            param([string]$Executable, [string[]]$Arguments)
+            return [pscustomobject]@{ ExitCode = 2; Output = @('parser error') }
+        }
+}
+
+Invoke-Test 'Zero output files do not publish a manifest' {
+    Invoke-FailClosedExtractionTest `
+        -Prefix 'rhwp-empty-output-' `
+        -ExpectedError '*produced no .txt output files*' `
+        -Runner {
+            param([string]$Executable, [string[]]$Arguments)
+            New-Item -ItemType Directory -Path $Arguments[3] -Force | Out-Null
+            return [pscustomobject]@{ ExitCode = 0; Output = @('no pages') }
+        }
+}
+
+Invoke-Test 'Page gaps do not publish a manifest' {
+    Invoke-FailClosedExtractionTest `
+        -Prefix 'rhwp-page-gap-' `
+        -ExpectedError '*page sequence is incomplete*' `
+        -Runner {
+            param([string]$Executable, [string[]]$Arguments)
+            $destination = $Arguments[3]
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $destination 'sample_001.txt') -Encoding UTF8 -Value 'page one'
+            Set-Content -LiteralPath (Join-Path $destination 'sample_003.txt') -Encoding UTF8 -Value 'page three'
+            return [pscustomobject]@{ ExitCode = 0; Output = @('gap') }
+        }
+}
+
+Invoke-Test 'Existing output directory is rejected before tool resolution' {
+    $directory = New-TestDirectory -Prefix 'rhwp-existing-output-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        New-Item -ItemType Directory -Path $output | Out-Null
+        $probe = [pscustomobject]@{ Called = $false }
+        $resolver = {
+            $probe.Called = $true
+            throw 'resolver must not run'
+        }.GetNewClosure()
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -ToolResolver $resolver
+        } '*must not already exist*'
+        Assert-Equal $probe.Called $false 'Tool resolver ran before output validation'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-existing-output-'
+    }
+}
+
+Invoke-Test 'Zero-byte page output fails closed' {
+    Invoke-FailClosedExtractionTest `
+        -Prefix 'rhwp-zero-byte-' `
+        -ExpectedError '*produced empty output*' `
+        -Runner {
+            param([string]$Executable, [string[]]$Arguments)
+            $destination = $Arguments[3]
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            [IO.File]::WriteAllBytes((Join-Path $destination 'sample_001.txt'), [byte[]]@())
+            return [pscustomobject]@{ ExitCode = 0; Output = @('empty page') }
+        }
+}
+
+Invoke-Test 'Text and Markdown page count mismatch fails closed' {
+    $directory = New-TestDirectory -Prefix 'rhwp-page-count-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        $session = New-FakeRhwpSession
+        $resolver = { $session }.GetNewClosure()
+        $runner = {
+            param([string]$Executable, [string[]]$Arguments)
+            $destination = $Arguments[3]
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            $extension = if ($Arguments[0] -ceq 'export-text') { 'txt' } else { 'md' }
+            Set-Content -LiteralPath (Join-Path $destination "sample_001.$extension") -Encoding UTF8 -Value 'page one'
+            if ($Arguments[0] -ceq 'export-text') {
+                Set-Content -LiteralPath (Join-Path $destination 'sample_002.txt') -Encoding UTF8 -Value 'page two'
+            }
+            return [pscustomobject]@{ ExitCode = 0; Output = @('ok') }
+        }
+        Assert-ThrowsLike {
+            Invoke-RhwpExtraction `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -Format both `
+                -ToolResolver $resolver `
+                -CommandRunner $runner
+        } '*page counts differ*'
+        Assert-True (-not (Test-Path -LiteralPath $output)) 'Mismatched pages published output'
+        Assert-NoExtractionStaging -Parent $directory
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-page-count-'
+    }
+}
+
+Invoke-Test 'Extraction entrypoint emits manifest JSON and preserves input' {
+    $directory = New-TestDirectory -Prefix 'rhwp-extract-entrypoint-'
+    try {
+        $inputPath = Join-Path $directory 'sample.hwp'
+        $output = Join-Path $directory 'result'
+        $fakeTool = Join-Path $directory 'rhwp.cmd'
+        Set-Content -LiteralPath $inputPath -Encoding UTF8 -Value 'fixture bytes'
+        Set-Content -LiteralPath $fakeTool -Encoding Ascii -Value @(
+            '@echo off',
+            'if "%~1"=="--version" goto version',
+            'if "%~1"=="export-text" goto text',
+            'if "%~1"=="export-markdown" goto markdown',
+            'exit /b 2',
+            ':version',
+            'echo rhwp v0.7.18',
+            'exit /b 0',
+            ':text',
+            'echo text page>"%~4\sample_001.txt"',
+            'exit /b 0',
+            ':markdown',
+            'echo markdown page>"%~4\sample_001.md"',
+            'exit /b 0'
+        )
+
+        $entrypoint = Join-Path $PSScriptRoot '..\extract-hwp.ps1'
+        $jsonLines = @(& powershell.exe `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File $entrypoint `
+                -InputPath $inputPath `
+                -OutputDirectory $output `
+                -Format both `
+                -RhwpPath $fakeTool 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+        Assert-Equal $exitCode 0 'Extraction entrypoint failed'
+        $manifest = ($jsonLines -join [Environment]::NewLine) | ConvertFrom-Json
+        Assert-Equal $manifest.outputs.Count 2 'Entrypoint output count mismatch'
+        Assert-Equal $manifest.tool.version 'v0.7.18' 'Entrypoint tool version mismatch'
+        Assert-True (Test-Path -LiteralPath $inputPath) 'Entrypoint deleted input'
+        Assert-True `
+            (Test-Path -LiteralPath (Join-Path $output 'rhwp-extraction-manifest.json')) `
+            'Entrypoint did not persist the manifest'
+    }
+    finally {
+        Remove-TestDirectory -Path $directory -Prefix 'rhwp-extract-entrypoint-'
+    }
+}
+
 Write-Output "RESULT Passed=$script:Passed Failed=$script:Failed"
 if ($script:Failed -gt 0) {
     exit 1

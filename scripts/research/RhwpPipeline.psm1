@@ -346,11 +346,228 @@ function Remove-RhwpToolSession {
         -ExpectedPrefix 'rhwp-tool-'
 }
 
+function Invoke-RhwpCommand {
+    param(
+        [Parameter(Mandatory)] [string]$Executable,
+        [Parameter(Mandatory)] [string[]]$Arguments
+    )
+
+    $output = @(& $Executable @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+    return [pscustomobject]@{
+        ExitCode = $LASTEXITCODE
+        Output = $output
+    }
+}
+
+function Get-RhwpPageOutputs {
+    param(
+        [Parameter(Mandatory)] [string]$Directory,
+        [Parameter(Mandatory)] [string]$Stem,
+        [Parameter(Mandatory)] [ValidateSet('txt', 'md')] [string]$Extension
+    )
+
+    $pattern = '^' + [regex]::Escape($Stem) + '_(?<page>[0-9]{3})\.' + $Extension + '$'
+    $files = @(Get-ChildItem -LiteralPath $Directory -File | Where-Object {
+            $_.Name -match $pattern
+        } | Sort-Object Name)
+    if ($files.Count -eq 0) {
+        throw "rhwp produced no .$Extension output files."
+    }
+
+    for ($index = 0; $index -lt $files.Count; $index++) {
+        $expectedPage = '{0:D3}' -f ($index + 1)
+        if ($files[$index].BaseName -notlike "*_$expectedPage") {
+            throw "rhwp page sequence is incomplete at $expectedPage."
+        }
+        if ($files[$index].Length -le 0) {
+            throw "rhwp produced empty output: $($files[$index].Name)"
+        }
+    }
+    return $files
+}
+
+function Invoke-RhwpExtraction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$InputPath,
+
+        [Parameter(Mandatory)]
+        [string]$OutputDirectory,
+
+        [ValidateSet('text', 'markdown', 'both')]
+        [string]$Format = 'both',
+
+        [string]$RhwpPath,
+        [scriptblock]$ToolResolver,
+        [scriptblock]$CommandRunner = ${function:Invoke-RhwpCommand}
+    )
+
+    $input = Get-Item -LiteralPath $InputPath -ErrorAction Stop
+    if (-not $input.PSIsContainer -and $input.Extension.ToLowerInvariant() -eq '.hwpx') {
+        if (-not $script:RhwpHwpxCompatibilityEnabled) {
+            throw '.hwpx extraction is disabled until the pinned compatibility test passes.'
+        }
+    }
+    elseif ($input.PSIsContainer -or $input.Extension.ToLowerInvariant() -ne '.hwp') {
+        throw 'InputPath must have the .hwp extension.'
+    }
+
+    $outputFullPath = [IO.Path]::GetFullPath($OutputDirectory)
+    if (Test-Path -LiteralPath $outputFullPath) {
+        throw "OutputDirectory must not already exist: $outputFullPath"
+    }
+    $outputParent = [IO.Path]::GetDirectoryName($outputFullPath)
+    if (-not (Test-Path -LiteralPath $outputParent -PathType Container)) {
+        throw "Output parent does not exist: $outputParent"
+    }
+
+    $stagingLeaf = '.rhwp-extract-' + [Guid]::NewGuid().ToString('N')
+    $staging = Join-Path $outputParent $stagingLeaf
+    New-Item -ItemType Directory -Path $staging | Out-Null
+    Set-Content `
+        -LiteralPath (Join-Path $staging '.rhwp-owned') `
+        -Encoding Ascii `
+        -NoNewline `
+        -Value $stagingLeaf
+
+    $session = $null
+    try {
+        $session = if ($null -ne $ToolResolver) {
+            & $ToolResolver
+        }
+        else {
+            New-RhwpToolSession -RhwpPath $RhwpPath
+        }
+        if ($null -eq $session -or [string]::IsNullOrWhiteSpace([string]$session.Path)) {
+            throw 'The rhwp tool resolver did not return an executable path.'
+        }
+
+        $normalizedFormat = $Format.ToLowerInvariant()
+        $requestedFormats = if ($normalizedFormat -ceq 'both') {
+            @('text', 'markdown')
+        }
+        else {
+            @($normalizedFormat)
+        }
+        $commands = [System.Collections.Generic.List[object]]::new()
+        $pageFiles = [System.Collections.Generic.List[object]]::new()
+
+        foreach ($kind in $requestedFormats) {
+            $commandName = if ($kind -ceq 'text') { 'export-text' } else { 'export-markdown' }
+            $fileExtension = if ($kind -ceq 'text') { 'txt' } else { 'md' }
+            $destination = Join-Path $staging $kind
+            New-Item -ItemType Directory -Path $destination | Out-Null
+            $arguments = @($commandName, $input.FullName, '--output', $destination)
+            $result = & $CommandRunner ([string]$session.Path) $arguments
+            if ($null -eq $result -or $null -eq $result.ExitCode) {
+                throw "$commandName returned no exit code."
+            }
+            if ([int]$result.ExitCode -ne 0) {
+                $commandOutput = @($result.Output) -join [Environment]::NewLine
+                throw "$commandName failed with exit code $($result.ExitCode): $commandOutput"
+            }
+            $commands.Add([ordered]@{
+                    name = $commandName
+                    arguments = $arguments
+                    exit_code = 0
+                })
+            foreach ($file in @(Get-RhwpPageOutputs `
+                        -Directory $destination `
+                        -Stem $input.BaseName `
+                        -Extension $fileExtension)) {
+                $pageFiles.Add($file)
+            }
+        }
+
+        if ($normalizedFormat -ceq 'both') {
+            $textCount = @($pageFiles | Where-Object { $_.Extension -ceq '.txt' }).Count
+            $markdownCount = @($pageFiles | Where-Object { $_.Extension -ceq '.md' }).Count
+            if ($textCount -ne $markdownCount) {
+                throw "rhwp text and markdown page counts differ: $textCount and $markdownCount."
+            }
+        }
+
+        $manifestOutputs = @($pageFiles | ForEach-Object {
+                [ordered]@{
+                    relative_path = $_.FullName.Substring($staging.Length + 1).Replace('\', '/')
+                    byte_count = $_.Length
+                    sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+                }
+            })
+        $manifest = [ordered]@{
+            schema_version = 1
+            executed_at_utc = [DateTime]::UtcNow.ToString('o')
+            tool = [ordered]@{
+                version = $session.Version
+                executable_sha256 = $session.ExecutableSha256
+                archive_sha256 = $session.ArchiveSha256
+                release_url = $session.ReleaseUrl
+                checksum_url = $session.ChecksumUrl
+            }
+            input = [ordered]@{
+                file_name = $input.Name
+                byte_count = $input.Length
+                sha256 = (Get-FileHash -LiteralPath $input.FullName -Algorithm SHA256).Hash
+            }
+            commands = @($commands)
+            outputs = $manifestOutputs
+            retention_status = 'TEMPORARY_NOT_RETAINED'
+            warnings = @(
+                'Extraction does not establish legal effect, source rights, tax correctness, or spatial correctness.'
+            )
+            manual_review_required = $true
+        }
+
+        $manifestTemporaryPath = Join-Path $staging 'rhwp-extraction-manifest.json.tmp'
+        $manifestPath = Join-Path $staging 'rhwp-extraction-manifest.json'
+        $manifest |
+            ConvertTo-Json -Depth 8 |
+            Set-Content -LiteralPath $manifestTemporaryPath -Encoding UTF8
+        Move-Item -LiteralPath $manifestTemporaryPath -Destination $manifestPath
+
+        if ($session.Temporary) {
+            Remove-RhwpToolSession -Session $session
+            $session = $null
+        }
+        Move-Item -LiteralPath $staging -Destination $outputFullPath
+        return [pscustomobject]$manifest
+    }
+    catch {
+        $primaryError = $_
+        $cleanupErrors = [System.Collections.Generic.List[string]]::new()
+        if (Test-Path -LiteralPath $staging) {
+            try {
+                Remove-RhwpOwnedWorkspace `
+                    -WorkspacePath $staging `
+                    -ExpectedPrefix '.rhwp-extract-' `
+                    -AllowedParent $outputParent
+            }
+            catch {
+                $cleanupErrors.Add($_.Exception.Message)
+            }
+        }
+        if ($null -ne $session -and $session.Temporary) {
+            try {
+                Remove-RhwpToolSession -Session $session
+            }
+            catch {
+                $cleanupErrors.Add($_.Exception.Message)
+            }
+        }
+        if ($cleanupErrors.Count -gt 0) {
+            throw "rhwp extraction failed and cleanup also failed: $($primaryError.Exception.Message); $($cleanupErrors -join '; ')"
+        }
+        throw $primaryError
+    }
+}
+
 Export-ModuleMember -Function @(
     'Get-RhwpReleaseDescriptor',
     'Test-RhwpAllowedHost',
     'Get-RhwpExpectedChecksum',
     'Assert-RhwpArchiveChecksum',
     'New-RhwpToolSession',
-    'Remove-RhwpToolSession'
+    'Remove-RhwpToolSession',
+    'Invoke-RhwpExtraction'
 )
