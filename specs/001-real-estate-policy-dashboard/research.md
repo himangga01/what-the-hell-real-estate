@@ -105,7 +105,7 @@ verification_status: VERIFIED | PARTIAL | PENDING_REVIEW
 cutoff_manifest:
   path: research-data/cutoff-manifest.csv
   artifact_rows: 12
-  sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
+  sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
   approval_status: PENDING_T006
 known_gaps:
   - id: stable-gap-id

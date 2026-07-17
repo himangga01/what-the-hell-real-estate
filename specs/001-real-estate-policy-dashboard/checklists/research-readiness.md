@@ -183,7 +183,7 @@ automated_research_progress:
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
   cutoff_manifest: research-data/cutoff-manifest.csv
   cutoff_manifest_artifact_rows: 12
-  cutoff_manifest_sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
+  cutoff_manifest_sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
   cutoff_manifest_approval_status: PENDING
   immutable_gazette_pages_render_reviewed: true
   rhwp_version: v0.7.18

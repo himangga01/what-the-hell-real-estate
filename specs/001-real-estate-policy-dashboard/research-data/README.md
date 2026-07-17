@@ -124,7 +124,7 @@ row_counts:
   immutable_gazette_captures: 4
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
   cutoff_manifest_artifacts: 12
-  cutoff_manifest_sha256: fc180839e67b367e73f9ae65bcc1dc8e87303987c6332dc1f32c376b9cf3e8d4
+  cutoff_manifest_sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
   cutoff_hash_byte_policy: UTF8_LF_TEXT_AND_RAW_PDF_BYTES
 files:
   policy-events.csv: PARTIAL

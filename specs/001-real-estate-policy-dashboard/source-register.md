@@ -77,25 +77,24 @@
 
 ### 2.1 robots·권리 페이지 임시 관찰
 
-2026-07-17에 공식 호스트의 robots와 권리 페이지를 직접 확인했다. 아래 해시는 조사 당시
-응답을 식별하는 관찰값일 뿐, 응답 바이트를 저장소에 보존하지 않았으므로
-`source-rights.csv`의 증거 해시 열에는 넣지 않았다. 404·오류 HTML·소프트 차단 본문도
-정상 정책 파일의 해시로 승격하지 않는다.
+2026-07-17에 공식 호스트의 robots와 권리 페이지를 직접 확인했다. 응답 바이트와 임시 계산
+해시는 저장소에 보존하지 않았고 `source-rights.csv`의 증거 해시 열도 비워 두었다.
+404·오류 HTML·소프트 차단 본문은 정상 정책 증거로 등록하지 않는다.
 
-| 호스트 | 공식 robots URL | 관찰 결과 | 임시 관찰 SHA-256 |
-|---|---|---|---|
-| 국가법령정보센터 | [robots.txt](https://www.law.go.kr/robots.txt) | 전체 허용 | `bdf6e8d2c4792183feb41f8b1440551715d4564d5156cc74e67c54648d013133` |
-| 국가법령정보 공동활용 | [robots.txt](https://open.law.go.kr/robots.txt) | missing HTML로 리디렉션되어 정책 파일 없음 | 오류 본문 `b96a79099b5e79da9a777c8c0fad4fce564e565623ac5a809a9fcbc6200992b8` |
-| 전자관보 | [robots.txt](https://www.gwanbo.go.kr/robots.txt) | 404 HTML, 허용으로 해석하지 않음 | 오류 본문 `552bca184d3c9653ed314c841a187d6576cc27fcf3bb47857eedff15ec752b9d` |
-| 국토교통부 | [robots.txt](https://www.molit.go.kr/robots.txt) | 동일 URL 307 리디렉션 반복 | 없음 |
-| 재정경제부 | [robots.txt](https://www.mofe.go.kr/robots.txt) | 검색·설문 일부 제한, 관련 `/lw`·`/mn` 경로 허용 | `9539f48ca75eeeb0735b22f0a9f7c42ff62d3c90a432c60bc6e3a0e80fcf97e1` |
-| 국세청 | [robots.txt](https://www.nts.go.kr/robots.txt) | 전체 허용 | `1cbdbc6504be7abe1267d01d7f565bfcfe5851ba3f6a3754d1d61c8f8a2c6aa3` |
-| 국세법령정보시스템 | [robots.txt](https://taxlaw.nts.go.kr/robots.txt) | `/is` 일부 제한, 관련 `/qt`·`/br` 경로 허용 | `22b6f3c35bc5895c76b468219061c9a44f680cfbb9928390b98f673fcebf3790` |
-| 행정안전부 | [robots.txt](https://www.mois.go.kr/robots.txt) | 전체 허용 | `eaeaa8d3511d1622227d89707d995b8b1f0902f5b86fdbe58882d1cef260d4d7` |
-| 서울특별시 | [robots.txt](https://www.seoul.go.kr/robots.txt) | 기본 차단, `/news`·`/helper` 등 허용 목록 | `bb9fd745598d92b5c816b4ec38170f5db3b5436c1ce7ebae1c2d1154721b80f9` |
-| 경기도 | [robots.txt](https://www.gg.go.kr/robots.txt) | HTTP 200이지만 보안 차단 HTML | 차단 본문 `e21590f7c177157a33a4730c0f054bb952a9fd98a1f2859a159a997e872a4493` |
-| 주소정보누리집 | [robots.txt](https://business.juso.go.kr/robots.txt) | `/jsi`·`/jsm` 선택 차단 | `251a080dc3287759823c84f608591aeea81257daaa737911a25b31ac94d8ca74` |
-| 브이월드 | [robots.txt](https://www.vworld.kr/robots.txt) | 일반 허용, crawl-delay 30 | `e4f19a52c708e97a0220b454485b1535c3f94b493c161e5212fff7c0adbf7b01` |
+| 호스트 | 공식 robots URL | 관찰 결과 |
+|---|---|---|
+| 국가법령정보센터 | [robots.txt](https://www.law.go.kr/robots.txt) | 전체 허용 |
+| 국가법령정보 공동활용 | [robots.txt](https://open.law.go.kr/robots.txt) | missing HTML로 리디렉션되어 정책 파일 없음 |
+| 전자관보 | [robots.txt](https://www.gwanbo.go.kr/robots.txt) | 404 HTML, 허용으로 해석하지 않음 |
+| 국토교통부 | [robots.txt](https://www.molit.go.kr/robots.txt) | 동일 URL 307 리디렉션 반복 |
+| 재정경제부 | [robots.txt](https://www.mofe.go.kr/robots.txt) | 검색·설문 일부 제한, 관련 `/lw`·`/mn` 경로 허용 |
+| 국세청 | [robots.txt](https://www.nts.go.kr/robots.txt) | 전체 허용 |
+| 국세법령정보시스템 | [robots.txt](https://taxlaw.nts.go.kr/robots.txt) | `/is` 일부 제한, 관련 `/qt`·`/br` 경로 허용 |
+| 행정안전부 | [robots.txt](https://www.mois.go.kr/robots.txt) | 전체 허용 |
+| 서울특별시 | [robots.txt](https://www.seoul.go.kr/robots.txt) | 기본 차단, `/news`·`/helper` 등 허용 목록 |
+| 경기도 | [robots.txt](https://www.gg.go.kr/robots.txt) | HTTP 200이지만 보안 차단 HTML |
+| 주소정보누리집 | [robots.txt](https://business.juso.go.kr/robots.txt) | `/jsi`·`/jsm` 선택 차단 |
+| 브이월드 | [robots.txt](https://www.vworld.kr/robots.txt) | 일반 허용, crawl-delay 30 |
 
 권리·이용조건은 robots와 별도로 확인했다. 국가법령정보센터의
 [법적효력·저작권](https://www.law.go.kr/lawPetitionForm.do?menuId=13&subMenuId=79),
@@ -463,18 +462,18 @@ rights:
   observation_retention: TEMPORARY_NOT_RETAINED
   policy_hashes_persisted: false
   robots_observations:
-    law_go_kr: {status: OBSERVED_ALLOWED, sha256: bdf6e8d2c4792183feb41f8b1440551715d4564d5156cc74e67c54648d013133}
-    open_law_go_kr: {status: OBSERVED_NOT_FOUND, error_body_sha256: b96a79099b5e79da9a777c8c0fad4fce564e565623ac5a809a9fcbc6200992b8}
-    gwanbo_go_kr: {status: OBSERVED_NOT_FOUND, error_body_sha256: 552bca184d3c9653ed314c841a187d6576cc27fcf3bb47857eedff15ec752b9d}
-    molit_go_kr: {status: OBSERVED_REDIRECT_LOOP}
-    mofe_go_kr: {status: OBSERVED_PATH_RULES, sha256: 9539f48ca75eeeb0735b22f0a9f7c42ff62d3c90a432c60bc6e3a0e80fcf97e1}
-    nts_go_kr: {status: OBSERVED_ALLOWED, sha256: 1cbdbc6504be7abe1267d01d7f565bfcfe5851ba3f6a3754d1d61c8f8a2c6aa3}
-    taxlaw_nts_go_kr: {status: OBSERVED_PATH_RULES, sha256: 22b6f3c35bc5895c76b468219061c9a44f680cfbb9928390b98f673fcebf3790}
-    mois_go_kr: {status: OBSERVED_ALLOWED, sha256: eaeaa8d3511d1622227d89707d995b8b1f0902f5b86fdbe58882d1cef260d4d7}
-    seoul_go_kr: {status: OBSERVED_DEFAULT_DISALLOW_ALLOWLIST, sha256: bb9fd745598d92b5c816b4ec38170f5db3b5436c1ce7ebae1c2d1154721b80f9}
-    gg_go_kr: {status: OBSERVED_SOFT_BLOCK, error_body_sha256: e21590f7c177157a33a4730c0f054bb952a9fd98a1f2859a159a997e872a4493}
-    business_juso_go_kr: {status: OBSERVED_PATH_RULES, sha256: 251a080dc3287759823c84f608591aeea81257daaa737911a25b31ac94d8ca74}
-    vworld_kr: {status: OBSERVED_CRAWL_DELAY_30, sha256: e4f19a52c708e97a0220b454485b1535c3f94b493c161e5212fff7c0adbf7b01}
+    law_go_kr: {status: OBSERVED_ALLOWED, evidence_hash: null}
+    open_law_go_kr: {status: OBSERVED_NOT_FOUND, evidence_hash: null}
+    gwanbo_go_kr: {status: OBSERVED_NOT_FOUND, evidence_hash: null}
+    molit_go_kr: {status: OBSERVED_REDIRECT_LOOP, evidence_hash: null}
+    mofe_go_kr: {status: OBSERVED_PATH_RULES, evidence_hash: null}
+    nts_go_kr: {status: OBSERVED_ALLOWED, evidence_hash: null}
+    taxlaw_nts_go_kr: {status: OBSERVED_PATH_RULES, evidence_hash: null}
+    mois_go_kr: {status: OBSERVED_ALLOWED, evidence_hash: null}
+    seoul_go_kr: {status: OBSERVED_DEFAULT_DISALLOW_ALLOWLIST, evidence_hash: null}
+    gg_go_kr: {status: OBSERVED_SOFT_BLOCK, evidence_hash: null}
+    business_juso_go_kr: {status: OBSERVED_PATH_RULES, evidence_hash: null}
+    vworld_kr: {status: OBSERVED_CRAWL_DELAY_30, evidence_hash: null}
 address_candidates:
   juso_search: REVIEW_REQUIRED
   juso_coordinate:
