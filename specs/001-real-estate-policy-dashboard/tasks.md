@@ -32,9 +32,21 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [ ] T006 정책·세금·공간·권리 담당자가 알려진 공백, 충돌 문서와 초기 컷오프 매니페스트를 검수하고 `specs/001-real-estate-policy-dashboard/checklists/research-readiness.md`를 승인한다.
 - [x] T111 [P] HWP 첨부를 공식 `edwardkim/rhwp` `v0.7.18`과 `SHA256SUMS.txt`로 검증해 임시 text·Markdown과 입력·도구·출력 SHA-256 매니페스트를 생성하는 fail-closed 파이프라인을 `scripts/research/`에 구현하고 `THIRD_PARTY_NOTICES.md`, `specs/001-real-estate-policy-dashboard/source-register.md`와 조사 게이트에 증거를 기록한다.
 
-**게이트**: `VERIFIED/PARTIAL/PENDING_REVIEW`가 모든 조사 행에 있고, P1 fixture에
-필요한 법적 공고·경계·해시가 `VERIFIED`가 아니면 다음 단계의 공개 데이터 적재를
-시작하지 않는다.
+**2026-07-17 진행 기록**:
+
+- T001: 정책 사건 89건으로 재정규화하고 OpenAPI 사건 enum, 합성 사건 분리, 출처 역할을
+  정정했다. 전국 기관별 전수 역대조와 나머지 85건의 불변 원문 캡처가 남아 미완료다.
+- T002: 출처 권리 21행으로 기관·본문·첨부 역할을 분리하고 전자관보 권리, 법령정보센터의
+  `STATUS_INDEX`, 주소 API 한계를 정정했다. robots·약관 증거 해시와 하위 지자체 등록이 남아 미완료다.
+- T003: 규제 지정 수단(공고) 44건으로 정규화하고 투기지역 관보 4건을 불변 캡처·해시·렌더링
+  검증했다. 전국 완전성 열거, 연장 공고, 필지·도면·행정구역 코드가 남아 미완료다.
+- T006: 조사 산출물 12개를 `cutoff-manifest.csv`에 고정했고 매니페스트 SHA-256은
+  `6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee`다. 자동 구조 검증과
+  해시 생성은 정책·세금·공간·권리 담당자의 실명 승인 및 승인 커밋을 대체하지 않는다.
+
+**게이트**: T001~T006이 모두 완료되고 정책·세금·공간·권리 담당자의 승인과 컷오프
+매니페스트 해시가 기록돼야 Phase 3을 시작한다. `PARTIAL`, `NOT_CAPTURED`,
+`TEMPORARY_NOT_RETAINED`, `PENDING_REVIEW` 자료는 공개 fixture·판정·RAG에 적재하지 않는다.
 
 ---
 
@@ -273,10 +285,10 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 
 ### 단계 의존성
 
-- Phase 1 조사 완료는 모든 공개 데이터 작업을 막는 게이트다.
+- Phase 1의 T001~T006 완료는 Phase 3 공통 기반 시작과 모든 공개 데이터 작업을 막는 게이트다.
 - T111은 Phase 1 HWP 증거 추출을 지원하지만 원문 권리·불변 캡처·T006 사람 승인을 완료 처리하지 않는다.
 - Phase 2 설정은 조사와 병렬 가능하지만 검증되지 않은 규칙·경계를 fixture로 만들지 않는다.
-- Phase 3 공통 기반은 모든 사용자 스토리의 선행 조건이다.
+- Phase 3 공통 기반은 T001~T006 완료 뒤에만 시작하며 모든 사용자 스토리의 선행 조건이다.
 - US1~US4는 공통 기반 후 코드 수준에서 병렬 가능하지만, 공개 전달은 US1 → US2 → US3 → US4 순이다.
 - Phase 8은 선택한 사용자 스토리 완료 후 실행한다.
 - T098은 다른 프로젝트 설정 명령보다 먼저 시작하고, T099는 T007·T008 뒤이자 T012 전에 완료한다.
@@ -336,9 +348,10 @@ task_count: 111
 blocking_order:
   - T098_repository_hygiene
   - T111_rhwp_research_extraction
-  - deep_research_gate_and_setup
   - T099_dependency_locks_before_T012_CI
-  - shared_foundation
+  - phase2_setup_may_run_in_parallel_with_deep_research
+  - T001_T006_deep_research_gate
+  - shared_foundation_after_T001_T006
   - user_stories
   - quality_and_release
 story_tasks:

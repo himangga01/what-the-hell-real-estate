@@ -9,7 +9,7 @@
 **구현·게시 승인**: 보류
 
 이 문서는 T006의 사람 검수 기록이다. 자동 검증 통과는 자료 구조가 읽을 수 있다는 뜻일 뿐,
-정책·세금·공간 판정의 정확성이나 게시 승인을 뜻하지 않는다. 아래 세 담당자의 이름·날짜·서명
+정책·세금·공간 판정의 정확성이나 게시 승인을 뜻하지 않는다. 아래 네 담당자의 이름·날짜·서명
 또는 승인 커밋이 모두 기록되기 전에는 T006을 완료 처리하지 않는다.
 
 ## 1. 산출물 존재·구조 확인
@@ -20,6 +20,8 @@
 - [x] 취득세·재산세·종부세·양도소득세 카드와 색인 문서가 있다.
 - [x] `source-rights.csv`에 내부 전문·공개·RAG·링크 전용·권리 상태가 분리돼 있다.
 - [ ] 원문 바이트 캡처와 SHA-256이 완료됐다.
+- [x] 투기지역 전자관보 4건의 원문 바이트·SHA-256·렌더링 검증 기록이 있다.
+- [x] `research-data/cutoff-manifest.csv`에 조사 산출물 12개의 컷오프·해시·승인 대기 상태를 기록했다.
 - [ ] 전국 지자체 필지·도면 자료가 전수 정규화됐다.
 
 ## 2. 정책 이력 담당 검수
@@ -27,19 +29,23 @@
 자동 조사·대조 기록:
 
 - [x] 국토교통부 2024 주택업무편람의 투기과열지구·조정대상지역 연혁표를 현재 매니페스트와 대조했다.
-- [x] 2016·2017·2018·2019·2021 누락 규제 instrument를 `PARTIAL` 또는 `VERIFIED` 상태로 추가했다.
+- [x] 2016·2017·2018·2019·2021 누락 규제 지정 수단(공고)을 `PARTIAL` 또는 `VERIFIED` 상태로 추가했다.
 - [x] 2016-11-03·2017-06-19 청약 조정대상지역 선행 상태와 2017-11-10 법정 조정대상지역 전환을 분리했다.
 - [x] 2018-08-28 공식 HWP에서 제2018-1086호·제2018-1088호·제2018-1089호와 적용 범위를 교차검증했다.
 - [x] 2019-11-08 제2019-1540호의 고양·남양주 유지 범위와 부산 3개 구 해제를 교차검증했다.
 - [x] 2020-06-19 제827호·제828호를 분리하고 2020-06-29 제877호 정정 사건을 추가했다.
 - [x] 2020-12-18 창원 의창구/성산구 규제 수단 혼합 오류를 제2020-1649호·제2020-1650호로 분리 정정했다.
 - [x] 2018-08-28과 2021-08-30의 서로 다른 규제 수단을 별도 정책 사건으로 분리했다.
+- [x] 기획재정부공고 제2017-114호·제2018-151호·제2022-189호·제2023-1호를 전자관보
+  원문으로 확인하고 서울·세종 투기지역 효력 구간을 분리했다.
+- [x] 정책 사건 유형을 OpenAPI enum에 맞추고 합성돼 있던 발표·공포·시행·연장·해제 사건을
+  확인 가능한 범위에서 분리해 89건으로 정규화했다.
 
 - [ ] 2016-07-10~2026-07-10의 전국 정책 목록을 기관별로 역방향 대조했다.
 - [ ] 발표·공포·시행·유예·연장·정정·해제·종료 사건을 중복 없이 분리했다.
 - [ ] `VERIFIED` 사건의 공고번호·시행일·공식 URL·selector를 원문과 대조했다.
-- [ ] 투기지역의 지정·해제 공고 공백을 해소했다.
-- [ ] `PARTIAL`과 `PENDING_CAPTURE` 행을 승인 대상에서 제외했다.
+- [ ] 투기지역의 전국 지정·해제 공고 완전성을 공식 전수 목록으로 확인했다.
+- [ ] `PARTIAL`, `NOT_CAPTURED`, `TEMPORARY_NOT_RETAINED` 행을 승인 대상에서 제외했다.
 - [ ] 2026-07-10 컷오프 이후 변경을 초기 스냅샷에서 제외했다.
 
 **검수자 이름/역할**: 미지정
@@ -70,7 +76,7 @@
 ## 4. 공간·규제 담당 검수
 
 - [ ] 조정대상지역·투기과열지구·투기지역·토지거래허가구역을 서로 다른 수단으로 검수했다.
-- [ ] 각 지정·해제·연장 instrument의 `[valid_from, valid_to)` 구간을 확인했다.
+- [ ] 각 지정·해제·연장 공고의 `[valid_from, valid_to)` 구간을 확인했다.
 - [ ] 행정구역 코드, 읍면동 제외, 필지·아파트 조서와 동일 단지 조건을 확인했다.
 - [ ] 경기도 2026-07-05 토지거래허가구역의 공고번호·도면·조건을 확보했다.
 - [ ] 경계 충돌·도면 누락 시 `REQUIRES_OFFICIAL_CHECK`로 종료하는 것을 승인했다.
@@ -94,6 +100,7 @@
   포함한 단위 테스트 25건을 통과했다.
 - [x] 성공 명령 진단 기록과 실행 중 생성한 손상 HWP의 무게시 실패 경로를 공식 도구로 확인했다.
 - [x] Windows PowerShell 5.1 단위·로컬 리디렉션 검증을 필수 CI 게이트에 연결했다.
+- [x] 전자관보 저작권정책을 확인하고 투기지역 관보 PDF 4건의 원문·해시를 불변 보존했다.
 - [ ] 법령 본문과 판례·첨부를 별도 권리 행으로 검수했다.
 - [ ] 공공누리 표시는 문서·첨부별로 확인했다.
 - [ ] `REVIEW_REQUIRED`, `LINK_ONLY`, `BLOCKED` 자료의 전문 공개·RAG가 비활성이다.
@@ -111,7 +118,7 @@
 ## 6. 현재 차단 사유
 
 1. 최근 10년 전국 정책·투기지역·지자체 공고의 전수 대조가 끝나지 않았다.
-2. 원문 바이트 캡처와 SHA-256이 모두 `PENDING_CAPTURE`다.
+2. 전자관보 PDF 4건만 불변 캡처됐고 나머지 정책·지정·권리 근거의 원문 바이트와 SHA-256이 남았다.
 3. 토지거래허가구역의 필지·도면·조건과 일부 공고번호가 남았다.
 4. 세금 카드는 조사본이며 세무 담당자의 조문·부칙 검수가 없다.
 5. 정책·세금·공간·권리 담당자의 실명 승인이 없다.
@@ -152,8 +159,8 @@ required_approvals:
   rights: PENDING_RIGHTS_REVIEW
 blocking_gaps:
   - nationwide_policy_exhaustiveness
-  - speculation_area_history
-  - immutable_source_capture_and_sha256
+  - nationwide_speculation_area_completeness
+  - remaining_immutable_source_capture_and_sha256
   - parcel_and_boundary_coverage
   - tax_statute_and_transition_review
 completion_rule: all_required_human_approvals_and_hashes_present
@@ -162,8 +169,19 @@ automated_research_progress:
   confirmed_2018_notice_numbers: [2018-1086, 2018-1088, 2018-1089]
   separated_predecessor_and_statutory_adjustment_area: true
   corrected_mixed_instrument_2020_12_18: true
-  policy_event_rows: 68
-  designation_instrument_rows: 40
+  policy_event_rows: 89
+  policy_event_relation_rows: 29
+  designation_instrument_rows: 44
+  designation_evidence_link_rows: 7
+  source_right_rows: 21
+  immutable_gazette_capture_count: 4
+  immutable_gazette_manifest: research-data/captures/manifest.csv
+  immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
+  cutoff_manifest: research-data/cutoff-manifest.csv
+  cutoff_manifest_artifact_rows: 12
+  cutoff_manifest_sha256: 6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee
+  cutoff_manifest_approval_status: PENDING
+  immutable_gazette_pages_render_reviewed: true
   rhwp_version: v0.7.18
   rhwp_archive_sha256: BD0B3280C0B87580BFC8C86AF337609ACF939C5F8F1DA6AB3EE73955064420FD
   rhwp_executable_sha256: C92492674CD9B2BDEF7B550FD24591554F75FE391F6299F943B01B7AEEF4F859
@@ -182,7 +200,7 @@ automated_research_progress:
   rhwp_extraction_retention: TEMPORARY_NOT_RETAINED
   rhwp_government_hwp_reextraction:
     document: molit_notice_2018_1086
-    prior_hash_matched: true
+    matched_previous_local_observation: true
     text_pages: 2
     markdown_pages: 2
     retained: false

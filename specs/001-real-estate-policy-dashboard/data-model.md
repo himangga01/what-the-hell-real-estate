@@ -172,6 +172,21 @@ erDiagram
 
 정책 발표 사건이 법적 지정 수단을 대체하지 않는다.
 
+### `policy_event_relation`
+
+발표→효력, 공포→시행, 추가 지정, 정정, 연장, 해제처럼 “관련은 있지만 전체 사건을
+대체하지 않는” 관계를 별도 다대다 간선으로 저장한다.
+
+- `event_id`, `related_event_id`
+- `relation_type`: `EFFECT_OF`, `TRANSITIONS_FROM`, `ADDS_SCOPE_TO`, `CORRECTS`,
+  `IMPLEMENTS_RETROACTIVE_EFFECT`, `LIFTS_SCOPE`, `EXTENDS_VALIDITY`, `REPLACES`,
+  `AMENDS`, `EXPIRES`
+- `scope`, `verification_status`, `known_gap`
+
+`supersedes_event_id`는 이전 사건 전체가 대체된 것이 원문으로 확인된 경우에만 사용한다.
+발표와 그 시행 사건, 추가 지정과 기존 지정처럼 병존하는 관계에는 사용하지 않는다. 조사
+staging의 관계 간선은 `research-data/policy-event-relations.csv`에 둔다.
+
 ### `geo_feature`와 `geo_feature_version`
 
 `geo_feature`는 행정구역·법정동·필지·사업구역·공식 도면의 안정 식별자다.
@@ -204,6 +219,10 @@ WGS84 표시용 좌표는 조회 시 변환하고, 원본 좌표계와 변환 �
 - `source_document_id`
 - `supersedes_instrument_id`
 - `review_status`
+
+조사 staging에서 하나의 원문이 여러 scope 행을 뒷받침할 때는 해시를 문자열 메모에
+중복하지 않고 `research-data/designation-evidence.csv`로 `instrument_id`와 불변 캡처를
+조인한다. 구현 적재 시 이 관계를 `source_document_id`로 환원한다.
 
 ### `designation_scope`
 
@@ -411,7 +430,7 @@ time_semantics:
   axes: [valid_time, recorded_time]
 core_aggregates:
   provenance: [SourceRegistry, SourceDocument, SourceSnapshot, EvidenceFragment, VerificationRun]
-  policy: [PolicyProgram, PolicyEvent]
+  policy: [PolicyProgram, PolicyEvent, PolicyEventRelation]
   geography: [GeoFeature, GeoFeatureVersion, DesignationInstrument, DesignationScope]
   rules: [RuleSet, RuleVersion, RuleDependency, TransitionClause, RuleBundle, GoldenCase, ReviewDecision]
 analysis_persistence: ephemeral_by_default

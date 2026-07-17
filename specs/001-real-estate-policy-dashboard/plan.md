@@ -80,14 +80,17 @@ flowchart LR
 | 안전·개인정보 최소화 | 기본 무저장, 고위험 식별자 금지, 불확실성 상태와 전문가 확인 경로를 제공한다. | 통과 |
 | 테스트·감사 | 경계·경과규정·골든 테스트 실패 시 게시를 차단하고 승인자를 기록한다. | 통과 |
 
-### Phase 1 이후 재점검
+### Phase 1 설계 반영 점검(구현 완료 표시 아님)
 
-- [x] 모든 공개 판정이 규칙 ID, 규칙 버전, 기준일과 근거 묶음을 반환한다.
-- [x] 법적 효력이 있는 문서와 설명·발견용 문서를 `source_role`로 구분한다.
-- [x] 토지거래허가구역의 거래주체·부동산 유형·면적·필지 조건을 표현한다.
-- [x] 문서 변경은 덮어쓰지 않고 새 스냅샷과 검수 대기 항목을 만든다.
-- [x] RAG 검색 대상은 `PUBLISHED`이면서 권리 검토가 끝난 조각으로 제한한다.
-- [x] 테스트 작성과 실패 확인이 각 구현 작업보다 앞선다.
+아래 체크는 설계·계약·작업 목록에 헌장 원칙이 반영됐다는 뜻이다. T001~T006 실행 완료나
+공개 승인을 뜻하지 않는다.
+
+- [x] 모든 공개 판정이 규칙 ID, 규칙 버전, 기준일과 근거 묶음을 반환하도록 설계했다.
+- [x] 법적 효력이 있는 문서와 설명·발견용 문서를 `source_role`로 구분하도록 설계했다.
+- [x] 토지거래허가구역의 거래주체·부동산 유형·면적·필지 조건을 표현하도록 설계했다.
+- [x] 문서 변경은 덮어쓰지 않고 새 스냅샷과 검수 대기 항목을 만들도록 설계했다.
+- [x] RAG 검색 대상을 `PUBLISHED`이면서 권리 검토가 끝난 조각으로 제한하도록 설계했다.
+- [x] 테스트 작성과 실패 확인이 각 구현 작업보다 앞서도록 작업 순서를 정의했다.
 
 헌장 위반이나 예외 승인은 없다.
 
@@ -277,7 +280,7 @@ DB 기반 작업 상태로 충분하지 않다는 측정 결과가 나온 뒤 �
 
 | 단계 | 산출물 | 완료 게이트 |
 |---|---|---|
-| 0. 조사 | 출처 레지스트리, 10년 정책 사건 목록, 현행 스냅샷 | 원문·공고·시행일·해시·권리 상태 확인 |
+| 0. 조사 | 출처 레지스트리, 10년 정책 사건 목록, 현행 스냅샷 | T001~T006 완료, 정책·세금·공간·권리 담당 승인, 컷오프 매니페스트 해시 기록 |
 | 1. 기반 | DB, 수집 스냅샷, 규칙 DSL, 감사 로그 | 스키마·계약·경계 테스트 통과 |
 | 2. P1 | 현재 정책, 운영 주소 정규화와 주소별 4종 규제 판정 | 검증 주소·경계일 골든 세트와 첫 방문 사용자 90%의 3분 내 결과 확인 통과 |
 | 3. P2 | 취득·보유·양도 분석 | 세금 경계·경과규정 골든 세트 통과 |
@@ -327,6 +330,11 @@ status_values:
   - REQUIRES_OFFICIAL_CHECK
   - UNSUPPORTED
 delivery_order: [US1, US2, US3, US4]
+phase_dependencies:
+  phase2_setup_may_run_in_parallel_with_research: true
+  phase3_shared_foundation_requires: [T001, T002, T003, T004, T005, T006]
+  research_gate_requires_human_roles: [policy, tax, spatial, rights]
+  research_gate_requires_cutoff_manifest_hash: true
 address_resolution:
   fixture_provider: deterministic_test_only
   production_provider: enable_after_terms_accuracy_and_privacy_review

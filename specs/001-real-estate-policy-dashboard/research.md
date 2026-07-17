@@ -12,6 +12,11 @@
 작업 대상이다. 따라서 이 문서는 `조사 체계와 초기 검증 스냅샷`이며 완성된
 법률 데이터베이스라고 주장하지 않는다.
 
+2026-07-17 감사에서는 정책 사건을 89건, 규제 지정 수단(공고)을 44건, 출처 권리 행을
+21건으로 정규화했다. 기획재정부 투기지역 전자관보 4건은 원문 PDF·SHA-256을 불변
+보존하고 모든 페이지를 렌더링해 확인했다. 그 밖의 정책·지정 원문과 전국 경계 자료는
+아직 부분 상태이므로 T001~T003과 T006은 완료 처리하지 않는다.
+
 ## 1. 확인된 현행 스냅샷
 
 ### 1.1 규제지역과 토지거래허가구역
@@ -33,8 +38,8 @@
 
 ### 1.2 양도소득세 핵심 경계
 
-- 다주택자 양도소득세 중과 한시 배제는 2026-05-09 종료되므로 계약일·양도일과
-  경과규정의 날짜 경계를 분리해 평가한다.
+- 다주택자 양도소득세 중과 일반 한시 배제는 2026-05-09가 마지막 적용일이고
+  2026-05-10부터 일반 배제 종료 상태다. 계약일·양도일과 경과규정의 날짜 경계를 분리해 평가한다.
 - 1세대 1주택 비과세는 보유·거주·주택 수·취득 당시 규제상태 등 사실관계가
   함께 필요하며, 고가주택 기준을 넘는 양도차익은 별도 계산이 필요하다.
 - 고가주택 기준 금액 12억원을 단순 비과세 불가 불리언으로 표현하지 않고
@@ -69,15 +74,16 @@
 
 ### 출처 우선순위
 
-1. 국가법령정보센터와 전자관보의 법령·고시·공고
-2. 국토교통부, 기획재정부, 행정안전부, 국세청과 지자체의 원문
+1. 전자관보와 국토교통부·기획재정부·행정안전부·국세청·지자체 발행 원문
+2. 국가법령정보센터의 현행·연혁 상태 색인과 공식 API
 3. 공공데이터 포털과 공식 현황 API
 4. 설명·발견용 정부 보도자료
 5. 기사·블로그·경쟁 서비스는 검색 키워드 발견과 UX 참고에만 사용
 
 국가법령정보센터는 [공식 Open API 안내](https://open.law.go.kr/LSO/openApi/openApiManual.do)를
-제공한다. API 이용조건과 호출량을 출처 레지스트리에 기록하고, 원문 변경 시
-이전 응답을 덮어쓰지 않는다.
+제공하지만 센터 정보 자체에는 법적 효력이 없다고 안내한다. 따라서 현행·연혁 탐색에는
+`STATUS_INDEX`로 사용하고 법적 효력은 전자관보 또는 발행기관 원문으로 확인한다. API
+이용조건과 호출량을 출처 레지스트리에 기록하고, 원문 변경 시 이전 응답을 덮어쓰지 않는다.
 
 ### 조사 매니페스트
 
@@ -88,11 +94,29 @@ snapshot_cutoff: 2026-07-10T23:59:59+09:00
 history_from: 2016-07-10T00:00:00+09:00
 source_id: official-source-id
 source_role: LEGAL_EFFECT | BOUNDARY | EXPLANATION | STATUS_INDEX | DISCOVERY_ONLY
-retrieved_at: timestamp
-content_sha256: hash
+retrieved_at: timestamp | null
+content_sha256: sha256:{64 hex} | null
+capture_status: NOT_CAPTURED | TEMPORARY_NOT_RETAINED | IMMUTABLE_CAPTURED
 rights_status: ALLOWED | LINK_ONLY | REVIEW_REQUIRED | BLOCKED
 verification_status: VERIFIED | PARTIAL | PENDING_REVIEW
-known_gaps: []
+cutoff_manifest:
+  path: research-data/cutoff-manifest.csv
+  artifact_rows: 12
+  sha256: 6c074fd5affaf5c6b4bc4ad0e36c86b6ef3e1225b7283979c12ec901826a34ee
+  approval_status: PENDING_T006
+known_gaps:
+  - id: stable-gap-id
+    status: PARTIAL
+    statement: machine-readable gap statement
+```
+
+현재 투기지역 이력에는 다음 공백을 명시한다.
+
+```yaml
+- id: GAP-SPECULATION-AREA-NATIONAL-COMPLETENESS
+  status: PARTIAL
+  period: 2016-07-10/2026-07-10
+  statement: 전자관보 키워드 검색은 개별 공고의 발견·검증 근거일 뿐 전국 지정·해제 이력의 완전성 열거기가 아니다. 공식 상태 인덱스 또는 전수 목록 확보 전까지 전국 완전성을 주장하지 않는다.
 ```
 
 ### 필수 역사 경계 회귀 사례
@@ -270,6 +294,19 @@ PostgreSQL 클러스터에서 관리한다.
 
 ```yaml
 research_date: 2026-07-10
+audit_updated_on: 2026-07-17
+row_counts:
+  policy_events: 89
+  policy_event_relations: 29
+  designation_instruments: 44
+  designation_evidence_links: 7
+  source_rights: 21
+  tax_rule_cards: 4
+immutable_captures:
+  gazette_pdfs: 4
+  manifest: research-data/captures/manifest.csv
+  manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
+  all_pages_render_reviewed: true
 verified_now:
   - current_regulated_area_index
   - 2026_07_01_new_regulated_areas
@@ -278,8 +315,11 @@ verified_now:
   - one_house_exemption_and_krw_1_2b_high_value_boundary
 not_yet_complete:
   - exhaustive_2016_2026_policy_event_manifest
+  - nationwide_speculation_area_completeness
+  - remaining_immutable_source_capture
   - nationwide_parcel_level_land_permit_boundaries
   - fully_reviewed_tax_rule_catalog
+  - robots_and_terms_evidence_hashes
 decisions:
   source_strategy: official_primary_source_first
   storage: postgresql_postgis_pgvector

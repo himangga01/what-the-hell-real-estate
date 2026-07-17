@@ -68,7 +68,8 @@
 - 2주택 중과 후보: 기본세율 + 20%p
 - 3주택 이상 중과 후보: 기본세율 + 30%p
 - 중과 대상 주택은 장기보유특별공제 배제 후보
-- 한시적 중과 배제의 일반 종료 경계: 2026-05-09
+- 한시적 중과 배제의 마지막 일반 적용일: 2026-05-09
+- 반개구간 `valid_to`이자 일반 배제 종료 상태 시작일: 2026-05-10
 
 국세청 공식 사례에서 2026-05-09까지 정식 매매계약을 체결하고 계약금 지급 사실이 증명되는
 경우, 강남·서초·송파·용산 소재 주택은 계약일부터 4개월, 2025-10-16 신규 조정대상지역
@@ -119,7 +120,8 @@ publication_ready: false
 effective_snapshot: 2026-07-10
 checked_on: 2026-07-17
 confidence: PARTIAL
-transition_boundary: 2026-05-09
+last_general_exclusion_date: 2026-05-09
+general_exclusion_valid_to_exclusive: 2026-05-10
 transition_candidates:
   gangnam_seocho_songpa_yongsan_months: 4
   areas_newly_designated_2025_10_16_months: 6

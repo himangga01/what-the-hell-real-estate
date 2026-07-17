@@ -1,0 +1,6 @@
+/specs/001-real-estate-policy-dashboard/research-data/*.csv text eol=lf
+/specs/001-real-estate-policy-dashboard/research-data/tax-rule-cards/*.md text eol=lf
+/specs/001-real-estate-policy-dashboard/research-data/captures/*.csv text eol=lf
+/specs/001-real-estate-policy-dashboard/research-data/captures/*.md text eol=lf
+/specs/001-real-estate-policy-dashboard/research-data/captures/gazette/*.pdf binary
+/specs/001-real-estate-policy-dashboard/source-register.md text eol=lf

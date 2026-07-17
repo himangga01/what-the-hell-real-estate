@@ -11,8 +11,12 @@
 - `VERIFIED`: 공식 페이지·조건을 확인했지만, 개별 문서의 법률·세무·공간 내용 승인을 뜻하지 않는다.
 - `PARTIAL`: 공식 출처는 확인했으나 정량 SLA, 첨부 권리, 공고번호, 경계 또는 저장 조건이 남았다.
 - `PENDING_REVIEW`: 사람의 권리·정책·세무·공간 검토 전에는 수집·게시·RAG 색인을 활성화하지 않는다.
-- `PENDING_CAPTURE`: 이번 작업에서 원문 바이트를 보존하지 않아 SHA-256을 생성하지 않았다는 뜻이다.
-- `LEGAL_EFFECT`와 `BOUNDARY`만 법적 판정의 직접 근거가 될 수 있다.
+- `NOT_CAPTURED`: 원문 바이트를 보존하지 않았고 SHA-256 값은 비워 둔다는 뜻이다.
+- `TEMPORARY_NOT_RETAINED`: 조사 시 응답을 확인했지만 불변 원문을 보존하지 않았다는 뜻이다.
+- `IMMUTABLE_CAPTURED`: 원문 바이트와 `sha256:{64 hex}`를 저장하고 매니페스트로 재검증할 수 있다는 뜻이다.
+- `LEGAL_EFFECT`와 `BOUNDARY`만 법적 판정의 직접 근거가 될 수 있다. 국가법령정보센터
+  화면·API는 센터 안내에 따라 법적 효력이 없는 참고·색인(`STATUS_INDEX`)으로 취급하고,
+  관보 또는 발행기관 원문으로 최종 확인한다.
 - `EXPLANATION`, `STATUS_INDEX`, `DISCOVERY_ONLY`는 발견과 설명에만 사용하고 공고·법령을 대체하지 않는다.
 
 아래의 “프로젝트 재확인 목표”는 공급자가 보장한 SLA가 아니다. 공개된 공급자 SLA를 찾지
@@ -32,36 +36,45 @@
 | `API_APPLICATION_REQUIRED` | API 승인 후 발급 조건과 호출 정책 준수 |
 | `API_PATHS_RESTRICTED` | 승인된 API 경로·속도만 사용 |
 | `API_KEY_REQUIRED` | 키 발급과 제공기관 이용조건 준수 |
+| `ROBOTS_POLICY_NOT_CAPTURED` | robots 원문 URL·확인 시각·해시를 아직 보존하지 않아 세부 허용·차단을 주장하지 않음 |
 | `ROBOTS_POLICY_NOT_FOUND` | 명시 정책을 찾지 못함. 허용으로 해석하지 않음 |
 
 ## 2. 기관·출처 레지스트리
 
 | 안정 키 | 기관·출처 | 기본 역할 | 공식 URL | 프로젝트 재확인 목표 | 공급자 SLA | 정확도·한계 | 장애 시 공식 확인 경로 | 요청·robots 경계 | 권리 운영 상태 | 캡처 |
 |---|---|---|---|---:|---|---|---|---|---|---|
-| `law.open-api` | 국가법령정보센터 공동활용 API | `LEGAL_EFFECT` | [공동활용 안내](https://open.law.go.kr/LSO/information/guide.do) · [API 가이드](https://open.law.go.kr/LSO/openApi/guideList.do) | 24시간 | 정량 한도 미공개 | 승인받은 API로 현행·연혁 법령, 행정규칙, 자치법규를 조회한다. 과도 호출은 제한될 수 있다. | 국가법령정보센터 웹 원문, 소관 기관, 전자관보 | 활용 신청·승인 필요. 사전 협의 없이 고빈도 호출 금지 | 법령·행정규칙 본문은 출처·버전·무결성 표시 조건의 `ALLOWED`; 판례·제3자 첨부는 별도 `REVIEW_REQUIRED` 행 | `PENDING_CAPTURE` |
-| `law.web.attachments` | 국가법령정보센터의 판례·결정례·제3자 첨부 | `DISCOVERY_ONLY` | [국가법령정보센터](https://www.law.go.kr/) | 24시간 | 미공개 | 법령 본문과 별도 권리일 수 있어 직접 판정 근거에서 제외한다. | 소관 부처 원문, 전자관보 | 일반 웹 자동 대량 수집 대신 API를 우선한다. | 문서별 권리 검토 전 `REVIEW_REQUIRED`·링크만 제공 | `PENDING_CAPTURE` |
-| `gazette` | 대한민국 전자관보 | `LEGAL_EFFECT` | [전자관보](https://www.gwanbo.go.kr/) | 24시간 | 미공개 | 일자·호수·정정·취소관보의 법적 게재 사실을 확인한다. 공식 API와 전국 첨부 전수 경로는 미확인이다. | 국가법령정보센터, 발행 기관 고시·공고 | robots 명시 파일 미확인. 검색·첨부를 우회 수집하지 않는다. | 약관의 가공·상업·무승인 배포 제한 때문에 PDF·DB는 `REVIEW_REQUIRED`, 검토 전 `LINK_ONLY` | `PENDING_CAPTURE` |
-| `molit.legal-notices` | 국토교통부 고시·공고 본문 | `LEGAL_EFFECT` | [국토교통부 고시·공고](https://www.molit.go.kr/USR/I0204/m_45/lst.jsp) · [저작권정책](https://www.molit.go.kr/USR/WPGE0201/m_121/DTL.jsp) | 6시간 | 미공개 | 고시·공고 본문만 법적 효력 판정 후보로 사용한다. | 전자관보, 국가법령정보센터, 담당 부서 | 검색·목록 robots 제한을 준수하고 403·CAPTCHA를 우회하지 않는다. | 게시물별 공공누리 표시 확인 전 `REVIEW_REQUIRED` | `PENDING_CAPTURE` |
-| `molit.boundary-attachments` | 국토교통부 지번표·도면·공간 첨부 | `BOUNDARY` | [국토교통부 고시·공고](https://www.molit.go.kr/USR/I0204/m_45/lst.jsp) | 6시간 | 미공개 | 본문과 첨부를 분리하고 필지·도면의 버전과 해시를 확인한다. | 발행 지자체 원문, 토지이음, 전자관보 | 첨부 직접 경로와 게시물별 robots·요청 정책을 확인한다. | 개별 첨부 권리 확인 전 `REVIEW_REQUIRED`·링크 전용 | `PENDING_CAPTURE` |
-| `molit.press-releases` | 국토교통부 보도자료 | `EXPLANATION` | [국토교통부 보도자료](https://www.molit.go.kr/USR/NEWS/m_71/lst.jsp) | 24시간 | 미공개 | 변경 발견과 설명에만 사용하고 공고·법령을 대체하지 않는다. | 고시·공고, 국가법령정보센터, 전자관보 | 검색·목록 robots 제한을 준수한다. | 게시물별 공공누리 표시 확인 전 `REVIEW_REQUIRED` | `PENDING_CAPTURE` |
-| `molit.policy-handbooks` | 국토교통부 주택업무편람 | `STATUS_INDEX` | [2024년 주택업무편람](https://www.molit.go.kr/USR/policyData/m_34681/dtl.jsp?id=4818) | 갱신 시 | 미공개 | 규제지역 지정·해제 연혁의 누락 탐지와 역방향 대조에만 사용한다. 개별 공고를 대체하지 않는다. | 개별 국토교통부 공고, 국가법령정보센터, 전자관보 | 정책자료 검색·첨부 경로의 요청 제한을 준수한다. | 문서별 공공누리·첨부 권리 확인 전 `REVIEW_REQUIRED` | `PENDING_CAPTURE`; 임시 해시만 아래 기록 |
-| `mofe.policy` | 재정경제부 및 구 기획재정부 문서 | `EXPLANATION`, 문서별 `LEGAL_EFFECT` | [재정경제부](https://www.mofe.go.kr/) | 24시간 | 미공개 | 세제 정책 설명은 법령 발견에만 사용하고 법률·시행령 버전으로 재검증한다. 과거 문서는 당시 발행 기관명을 보존한다. | 국가법령정보센터, 전자관보 | 구 사이트 검색 robots 제한을 준수한다. 새 사이트의 통합 정책은 추가 캡처가 필요하다. | 항목별 공공누리 조건. 일괄 허용하지 않고 기본 `REVIEW_REQUIRED` | `PENDING_CAPTURE` |
-| `nts.guides` | 국세청 세금 안내 | `EXPLANATION` | [국세청](https://www.nts.go.kr/) · [저작권정책](https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=8169&mi=6791) | 24시간 | 미공개 | 계산 안내·사례·경과 발견용이다. 세율·요건은 국가법령정보센터 시행 버전으로 재검증한다. | 국세상담센터 126, 국가법령정보센터 | 확인 당시 robots 일반 허용. 공개 API·정량 한도는 미확인 | 공공누리 표시 자료만 표시 유형에 따라 이용. 미표시·사례 첨부는 `REVIEW_REQUIRED` | `PENDING_CAPTURE` |
-| `mois.policy` | 행정안전부 | `EXPLANATION`, 문서별 `LEGAL_EFFECT` | [행정안전부](https://www.mois.go.kr/) · [저작권정책](https://www.mois.go.kr/frt/sub/a08/copyrightPolicy/screen.do) | 24시간 | 미공개 | 지방세·주소 제도 설명을 법령·고시와 분리한다. | 국가법령정보센터, 전자관보, 담당 부서 | 확인 당시 일반 경로 robots 허용 | 공공누리 제1유형 표시 자료는 출처 표시 조건, 미표시는 `REVIEW_REQUIRED` | `PENDING_CAPTURE` |
-| `seoul.notices` | 서울시·자치구 고시공고 | `LEGAL_EFFECT`, `BOUNDARY` | [서울특별시](https://www.seoul.go.kr/) · [저작권정책](https://www.seoul.go.kr/helper/copyright.do) | 6시간 | 미공개 | 서울시보·시/구 공고와 붙임 지번·도면을 문서별로 확인한다. | 서울시보, 자치구 고시공고, 전자관보 | 기본 차단 뒤 허용 경로를 열거하는 robots 정책. 허용되지 않은 첨부 경로 수집 금지 | 문서·첨부별 공공누리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED_ROBOTS_RESTRICTED` |
-| `gyeonggi.local-notices` | 경기도·시군 고시공고 | `LEGAL_EFFECT`, `BOUNDARY` | [경기도](https://www.gg.go.kr/) | 6시간 | 미공개 | 경기도보와 각 시군 공고를 별도 출처로 확장해야 한다. 하나의 “지자체” 권리로 합치지 않는다. | 경기도보, 해당 시군 공식 게시판, 전자관보 | `/site/`, `/down/`, XML 등 확인된 제한 경로를 우회하지 않는다. | 기관·게시판·첨부별 `REVIEW_REQUIRED` | `NOT_CAPTURED_ROBOTS_RESTRICTED` |
+| `law.open-api` | 국가법령정보센터 공동활용 API | `STATUS_INDEX` | [공동활용 안내](https://open.law.go.kr/LSO/information/guide.do) · [법적효력·저작권](https://www.law.go.kr/lawPetitionForm.do?menuId=13&subMenuId=79) | 24시간 | 가용성·복구·정량 호출 SLA 미공개; 활용 승인 통상 1~2일은 신청 처리 안내이지 SLA가 아님 | 승인받은 API로 현행·연혁 법령, 행정규칙, 자치법규를 검색한다. 센터 제공 정보 자체에는 법적 효력이 없고 트래픽 부하 시 제한될 수 있다. | 전자관보, 소관 기관의 공포·고시 원문 | 모든 데이터는 신청·승인 뒤 사용. 제한·신청 문의 044-200-6797, 기술 문의 02-2109-6446 | 법령·행정규칙 본문은 출처 표시·위조/변조 금지 조건의 `ALLOWED`; 제3자 권리는 별도 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `law.web.attachments` | 국가법령정보센터의 판례·결정례·제3자 첨부 | `DISCOVERY_ONLY` | [국가법령정보센터](https://www.law.go.kr/) | 24시간 | 미공개 | 법령 본문과 별도 권리일 수 있어 직접 판정 근거에서 제외한다. | 소관 부처 원문, 전자관보 | 일반 웹 자동 대량 수집 대신 API를 우선한다. | 문서별 권리 검토 전 `REVIEW_REQUIRED`·링크만 제공 | `NOT_CAPTURED` |
+| `gazette` | 대한민국 전자관보 | `LEGAL_EFFECT` | [전자관보](https://www.gwanbo.go.kr/) · [저작권정책](https://www.gwanbo.go.kr/user/info/copyright.do) | 24시간 | 서비스 이용시간 24/7 원칙이나 점검·기술 사유 중단 가능; 가용성·복구·정량 SLA 미공개 | 일자·호수·정정·취소관보의 법적 게재 사실을 확인한다. 공식 API와 전국 첨부 전수 경로는 미확인이다. | 발행 기관 고시·공고, 국가법령정보센터 참고 색인 | robots 증거 미캡처. 검색·첨부를 우회 수집하지 않는다. | 전자관보는 저작권법 제7조 대상으로 별도 이용허락 없이 자유이용 가능한 `ALLOWED`; 출처 표시 필요. 전자관보 외 홈페이지 게시물은 문서별 공공누리 검토 | 투기지역 관보 4건 `IMMUTABLE_CAPTURED`; 나머지 `NOT_CAPTURED` |
+| `molit.legal-notices` | 국토교통부 고시·공고 문서군 | `LEGAL_EFFECT` | [국토교통부 고시·공고](https://www.molit.go.kr/USR/I0204/m_45/lst.jsp) · [저작권정책](https://www.molit.go.kr/USR/WPGE0201/m_121/DTL.jsp) | 6시간 | 미공개 | 본문과 공식 붙임을 하나의 문서군으로 버전 관리하고 문서번호·게재일·시행일·정정/취소·붙임 해시를 함께 확인한다. 게시판 목록과 보도자료는 직접 판정 근거가 아니다. | 전자관보, 국가법령정보센터 참고 색인, 담당 부서 | robots 증거 미캡처. 403·CAPTCHA를 우회하지 않는다. | 게시물별 공공누리 표시 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `molit.boundary-attachments` | 국토교통부 지번표·도면·공간 첨부 | `BOUNDARY` | [국토교통부 고시·공고](https://www.molit.go.kr/USR/I0204/m_45/lst.jsp) | 6시간 | 미공개 | 공고 상세 페이지를 안정 부모 URL로 두고 각 붙임 URL·버전·필지·도면·해시를 별도 기록한다. 일반 다운로드 엔드포인트만 canonical URL로 사용하지 않는다. | 발행 지자체 원문, 토지이음, 전자관보 | robots 증거 미캡처. 첨부 직접 경로의 요청 정책을 문서별 확인한다. | 개별 첨부 권리 확인 전 `REVIEW_REQUIRED`·링크 전용 | `NOT_CAPTURED` |
+| `molit.press-releases` | 국토교통부 보도자료 | `EXPLANATION` | [국토교통부 보도자료](https://www.molit.go.kr/USR/NEWS/m_71/lst.jsp) | 24시간 | 미공개 | 변경 발견과 설명에만 사용하고 공고·법령을 대체하지 않는다. | 고시·공고, 국가법령정보센터, 전자관보 | 검색·목록 robots 제한을 준수한다. | 게시물별 공공누리 표시 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `molit.policy-handbooks` | 국토교통부 주택업무편람 | `STATUS_INDEX` | [2024년 주택업무편람](https://www.molit.go.kr/USR/policyData/m_34681/dtl.jsp?id=4818) | 갱신 시 | 미공개 | 규제지역 지정·해제 연혁의 누락 탐지와 역방향 대조에만 사용한다. 개별 공고를 대체하지 않는다. | 개별 국토교통부 공고, 국가법령정보센터, 전자관보 | 정책자료 검색·첨부 경로의 요청 제한을 준수한다. | 문서별 공공누리·첨부 권리 확인 전 `REVIEW_REQUIRED` | `TEMPORARY_NOT_RETAINED`; 임시 해시만 아래 기록 |
+| `mofe.policy-explanations` | 재정경제부·구 기획재정부 정책 설명 | `EXPLANATION` | [재정경제부](https://www.mofe.go.kr/) · [저작권정책](https://www.mofe.go.kr/mn/siteguide/drmp.do?menuNo=2030000) | 24시간 | 미공개 | 세제 정책 설명은 법령·관보 발견에만 사용한다. 과거 문서는 당시 발행 기관명을 보존한다. | 전자관보, 발행 당시 기관 고시·공고 | robots 증거 미캡처 | 항목별 공공누리 조건. 일괄 허용하지 않고 기본 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `mofe.legal-notices` | 재정경제부·구 기획재정부 고시·공고 | `LEGAL_EFFECT` | [고시·공고 목록](https://mofe.go.kr/lw/denm/TbDenmList.do?bbsId=MOSFBBS_000000000120&menuNo=7090200) · [저작권정책](https://www.mofe.go.kr/mn/siteguide/drmp.do?menuNo=2030000) | 24시간 | 미공개 | 개별 고시·공고와 관보를 대조하고 정정·취소·시행일·붙임을 함께 확인한다. | 전자관보, 담당 부서 | robots 증거 미캡처 | 문서별 공공누리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `mofe.tax-interpretations` | 재정경제부 세법해석 | `STATUS_INDEX` | [세법해석 목록](https://mofe.go.kr/lw/intrprt/TaxLawIntrPrtCaseList.do?bbsId=MOSFBBS_000000000237&menuNo=8120300) | 24시간 | 미공개 | 일반 사례·해석 발견용이며 신청인 특정 사실관계나 법원 판결을 대체하지 않는다. | 관보·법령 원문, 국세상담센터 126, 전문가 | robots 증거 미캡처 | 문서별 권리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `nts.guides` | 국세청 세금 안내 | `EXPLANATION` | [국세청](https://www.nts.go.kr/) · [국세법령정보시스템](https://taxlaw.nts.go.kr/qt/USEQTM001M.do) · [저작권정책](https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=8169&mi=6791) | 24시간 | 미공개 | 참고자료이며 개별 사안에 동일 적용되지 않을 수 있다. 계산 안내·사례는 발견용이고 세율·요건은 관보·법령 원문과 세무 검수로 재확인한다. | 국세상담센터 126, 관보·법령 원문, 세무 전문가 | robots 증거 미캡처. 공개 API·정량 한도 미확인 | 공공누리 표시 자료만 표시 유형에 따라 이용. 미표시·사례 첨부는 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `mois.policy-explanations` | 행정안전부 정책 설명 | `EXPLANATION` | [행정안전부](https://www.mois.go.kr/) · [저작권정책](https://www.mois.go.kr/frt/sub/a08/copyrightPolicy/screen.do) | 24시간 | 미공개 | 지방세·주소 제도 설명은 법령·고시 발견에만 사용한다. | 전자관보, 발행기관 법적 문서, 담당 부서 | robots 증거 미캡처 | 문서별 공공누리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `mois.legal-instruments` | 행정안전부 훈령·예규·고시 | `LEGAL_EFFECT` | [훈령·예규·고시](https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardList.do?bbsId=BBSMSTR_000000000016) · [저작권정책](https://www.mois.go.kr/frt/sub/a08/copyrightPolicy/screen.do) | 24시간 | 미공개 | 문서번호·시행일·정정/폐지와 관보 게재를 확인한다. | 전자관보, 국가법령정보센터 참고 색인, 담당 부서 | robots 증거 미캡처 | 문서별 공공누리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `seoul.city-notices` | 서울특별시 본청 고시·공고 | `LEGAL_EFFECT` | [서울시 고시·공고](https://www.seoul.go.kr/news/news_notice.do) · [저작권정책](https://www.seoul.go.kr/helper/copyright.do) | 6시간 | 미공개 | 누락·번호 검색은 서울시보로 대조한다. 25개 자치구는 이 행에 포함하지 않는다. | 서울시보, 전자관보, 담당 부서 | robots 증거 미캡처 | 문서별 공공누리 0~4·AI 유형 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `seoul.city-boundary-attachments` | 서울특별시 본청 지번표·도면 | `BOUNDARY` | [서울시 고시·공고](https://www.seoul.go.kr/news/news_notice.do) | 6시간 | 미공개 | 법적 공고와 붙임 지번·도면을 별도 버전·해시로 보존한다. 25개 자치구 첨부는 별도 등록 전 비활성이다. | 서울시보, 해당 자치구 공식 게시판 | robots 증거 미캡처 | 첨부별 공공누리·제3자 권리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `gyeonggi.province-notices` | 경기도 본청 도보·고시공고 | `LEGAL_EFFECT` | [경기도보](https://www.gg.go.kr/gg-dobo) · [저작권정책](https://www.gg.go.kr/contents/contents.do?ciIdx=1066&menuId=2772) | 6시간 | 미공개 | 경기도 본청 공고만 포함한다. 31개 시군은 이 행에 포함하지 않는다. | 전자관보, 담당 부서 | robots 증거 미캡처 | 문서별 공공누리 유형 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+| `gyeonggi.province-boundary-attachments` | 경기도 본청 지번표·도면 | `BOUNDARY` | [경기도보](https://www.gg.go.kr/gg-dobo) | 6시간 | 미공개 | 공고와 붙임 필지·단지 조서·도면을 별도 버전·해시로 보존한다. 31개 시군 첨부는 별도 등록 전 비활성이다. | 해당 시군 공식 게시판, 토지이음 | robots 증거 미캡처 | 첨부별 공공누리·제3자 권리 확인 전 `REVIEW_REQUIRED` | `NOT_CAPTURED` |
+
+서울 25개 자치구와 경기도 31개 시군 제공자는 stable key·공식 게시판·권리·robots 증거를
+각각 등록하기 전 모두 `DISABLED_PENDING_REVIEW`다. 본청 행의 권리나 요청 정책을 상속하지 않는다.
 
 문의 번호와 수동 대체 경로는 운영 설정에서 다시 확인한다. 조사 당시 국가법령정보센터
-공동활용 문의는 02-2109-6446, 과도 호출 협의는 02-2109-6457, 국세 상담은 126,
+공동활용 제한·신청 문의는 044-200-6797, 기술 문의는 02-2109-6446, 국세 상담은 126,
 행안부 주소 API 문의는 1588-0061로 안내됐다.
 
 ## 3. 운영 주소 정규화 후보
 
 | 안정 키 | 후보 | 공식 기능·한도 | 정확도·저장 경계 | 장애 시 경로 | 운영 판단 |
 |---|---|---|---|---|---|
-| `juso.search-api` | 행안부 주소기반산업지원서비스 검색 API | [API 신청](https://business.juso.go.kr/addrlink/openApi/apiReqst.do). 정량 제한은 공식 Q&A에서 없다고 안내하지만 과도 호출 시 IP 차단 가능 | 도로명↔지번·건물관리번호 검색. PNU 직접 반환과 결과 저장·재배포 조건은 확정하지 못함 | 주소정보누리집 수동 검색, 1588-0061 | 별도 신청 후 sandbox 검증 전 `REVIEW_REQUIRED`; T101 결정 필요 |
-| `juso.coordinate-api` | 행안부 좌표제공 API | 검색 API와 별도 신청. [공식 한도 답변](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=126550)에 따라 5초당 10건 | [좌표 설명](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=128137)의 UTM-K(GRS80). 좌표→PNU·보존 조건은 별도 확인 | 주소정보누리집, 1588-0061 | `REVIEW_REQUIRED`; 속도 제한·백오프 필수 |
-| `vworld.geocoder` | 브이월드 Geocoder | [공공데이터포털 공식 항목](https://www.data.go.kr/data/15101106/openapi.do), 무료·일 최대 40,000건 | 주소→좌표. 공식 안내상 API 결과의 별도 저장장치·DB 저장 금지 | 브이월드 웹, 02-1661-0115 | 권리 상태는 `BLOCKED`, 제한 사유는 `NO_PERSISTENT_STORAGE`; 메모리 내 사용도 서면 확인 전 비활성 |
+| `juso.search-api` | 행안부 주소기반산업지원서비스 검색 API | [현재 API 목록](https://business.juso.go.kr/jst/jstAddressApiList). 정량 제한 없음 안내, 과도 호출 시 IP 차단 가능 | 도로명↔지번·건물관리번호 검색. 좌표를 반환하지 않으며 도로명·지번은 항상 1:1이 아니다. PNU 직접 반환과 결과 저장·재배포 조건은 미확정 | 주소정보누리집 수동 검색, 1588-0061 | 별도 신청 후 sandbox 검증 전 `REVIEW_REQUIRED`; T101 결정 필요 |
+| `juso.coordinate-api` | 행안부 좌표제공 API | 검색 API와 별도 신청. [공식 한도 답변](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=126550&currentPage=49&keyword=&noticeMgtSn=126550&noticeType=QNA&noticeTypeTmp=QNA&page=&searchType=)에 따라 5초당 10건 | [좌표 설명](https://business.juso.go.kr/addrlink/qna/qnaDetail.do?bulletinRefSn=128137&currentPage=64&keyword=&noticeMgtSn=128137&noticeType=QNA&noticeTypeTmp=QNA&page=&searchType=)의 UTM-K(GRS80). 비공개 시설은 좌표가 없을 수 있고 좌표→PNU·보존 조건은 미확정 | 주소정보누리집, 1588-0061 | `REVIEW_REQUIRED`; 속도 제한·백오프 필수 |
+| `vworld.geocoder` | 브이월드 Geocoder | [공식 Geocoder 레퍼런스](https://www.vworld.kr/dev/v4dv_geocoderguide2_s001.do), 일 최대 40,000건 | 주소→좌표, 기본 EPSG:4326과 선택 좌표계 지원. 결과의 별도 저장장치·DB 저장 금지, 정확도 보장·가용성 SLA 미공개 | 브이월드 웹, 02-1661-0115 | 영구 snapshot·RAG·공개는 `BLOCKED`/`NO_PERSISTENT_STORAGE`; 메모리 내 일회성 사용도 T101 별도 승인 전 비활성 |
 
 운영 제공자는 도로명 주소, 지번, 건물관리번호, 좌표와 PNU를 한 API가 모두 보장한다고
 가정하지 않는다. 후보 API 실패·모호성 시 확정 판정을 중단하고 원문 주소를 저장하지 않은
@@ -75,7 +88,7 @@
 |---|---|---|---|---|
 | 국가법령정보 공동활용의 법령·행정규칙 본문 | 출처·버전·무결성 조건으로 가능 | 같은 조건으로 가능 | 가능 | `ALLOWED` |
 | 판례·결정례·제3자 첨부 | 검토 | 불가 | 불가 | `REVIEW_REQUIRED` |
-| 전자관보 PDF·DB | 검토 | 불가 | 불가 | `LINK_ONLY` 임시값 |
+| 전자관보 PDF·DB | 출처·진본·버전·무결성 표시 후 가능 | 같은 조건으로 가능 | 같은 조건으로 가능 | `ALLOWED` |
 | 공공누리 제1유형 표시 문서 | 출처 표시 후 가능 | 출처 표시 후 가능 | 가능 | 문서별 `ALLOWED` |
 | 공공누리 2·3·4유형 또는 미표시 문서 | 검토 | 검토 전 불가 | 검토 전 불가 | `REVIEW_REQUIRED`/`LINK_ONLY` |
 | 주소 API 원문 응답 | 기본 무저장 | 불가 | 불가 | Juso `REVIEW_REQUIRED`, VWorld `BLOCKED` |
@@ -86,14 +99,14 @@
 - 403·로그인·CAPTCHA·챌린지를 우회하지 않는다.
 - 권리 검토 전 원문 공개, 임베딩, 생성 모델 전송을 하지 않는다.
 
-## 5. 교차검증용 임시 캡처 증거
+## 5. 원문 캡처 증거
 
 2024년 주택업무편람과 2017~2020년 규제지역 공고 HWP 6건은 연혁표·법적 전환·공고번호를
 교차검증하기 위해 2026-07-17에 한 번 다운로드했다. 파일은 작업용 임시 디렉터리에서만
 사용하고 저장소에는 보존하지 않았으므로, 아래 해시는 조사 당시의 응답을 식별할 뿐 불변 원문
 캡처 게이트를 충족하지 않는다.
 
-### 5.1 HWP 추출 도구 검증
+### 5.1 교차검증용 임시 HWP 추출
 
 2026-07-17에 공식 [`edwardkim/rhwp`](https://github.com/edwardkim/rhwp) `v0.7.18`
 Windows x86_64 릴리스를 다음 조건으로 검증했다.
@@ -127,6 +140,25 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 | 국토교통부공고 제2018-1089호 HWP | [조정대상지역 지정 해제](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=15660) | 10,240 | `12ba74533969f4f7e495bbc18967505d40470504d75519aa5e05ee20db9ca7f0` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·scope 교차검증 |
 | 국토교통부공고 제2019-1540호 HWP | [조정대상지역 조정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=16220) | 11,264 | `465a838dd69a8399da7542bc51e985599cc2a5f90b7ba49b5dc33722d6a66afa` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 번호·해제·유지 scope 교차검증 |
 | 국토교통부공고 제2020-877호 HWP | [제2020-828호 정정](https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=17020) | 19,968 | `b2801068c4eb5b415a6ddddb544ad510e1affbe0d9ceb2efc19923a198b6d173` | `TEMPORARY_NOT_RETAINED` | `LEGAL_EFFECT` 화성 누락·용인/광주 제외 범위 정정 교차검증 |
+
+### 5.2 불변 보존한 전자관보 원문
+
+투기지역 지정·해제의 법적 원문 4건은 2026-07-17에 전자관보 뷰어에서 내려받아 저장소에
+보존했다. 각 PDF는 1페이지이며 모든 페이지를 PNG로 렌더링해 공고번호·날짜·대상 범위를
+육안 확인했다. 아래 해시는 현재 저장된 바이트의 재현 가능한 식별자이며, 권리 상태는
+전자관보 저작권정책에 따라 출처·무결성 표시 조건의 `ALLOWED`다.
+
+| 문서 | 보존 파일 | 바이트 | SHA-256 | 상태 |
+|---|---|---:|---|---|
+| 기획재정부공고 제2017-114호 | [`2017-114.pdf`](./research-data/captures/gazette/2017-114.pdf) | 377,374 | `sha256:2ff1852bee51dbffa93ad59f174c2dab05fbb2d8b8b35fe17a78ff2511230af9` | `IMMUTABLE_CAPTURED` |
+| 기획재정부공고 제2018-151호 | [`2018-151.pdf`](./research-data/captures/gazette/2018-151.pdf) | 641,483 | `sha256:3643c6ae0cbb7fa85441964786c1be020240dcbf25e97a26cc627f6d6af5d908` | `IMMUTABLE_CAPTURED` |
+| 기획재정부공고 제2022-189호 | [`2022-189.pdf`](./research-data/captures/gazette/2022-189.pdf) | 58,756 | `sha256:e54ac0bfe1196f2efdc9002e54a67aaedb801d80341d701e8cc417386e330f84` | `IMMUTABLE_CAPTURED` |
+| 기획재정부공고 제2023-1호 | [`2023-001.pdf`](./research-data/captures/gazette/2023-001.pdf) | 66,231 | `sha256:fb9934260e5eeea8a662601dab9c8e7ea69d07bcfdcc5ad8625f990b9c1fa475` | `IMMUTABLE_CAPTURED` |
+
+원본 URL·캡처 날짜 정밀도·MIME·검증 메모는
+[`research-data/captures/manifest.csv`](./research-data/captures/manifest.csv)를 단일 매니페스트로 쓴다.
+초 단위 수집 시각과 응답 헤더는 당시 보존하지 않았으므로 `DATE_ONLY`, `NOT_RETAINED`로
+기록하며 T002 완료 증거로 승격하지 않는다.
 
 이 대조에서 2020-12-18 창원시 의창구는 조정대상지역이 아니라 별도 투기과열지구
 공고 제2020-1649호의 범위이고, 같은 날 조정대상지역 공고 제2020-1650호의 창원 범위는
@@ -170,10 +202,10 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 ## 7. 현재 게이트 상태
 
 - 게시 가능 출처: 0개(개별 문서 권리·내용·해시·사람 검수가 아직 결합되지 않음)
-- 실제 원문 바이트 캡처: 이번 작업 범위에서는 0건
+- 실제 원문 바이트 캡처: 전자관보 PDF 4건 완료, 나머지 출처 미완료
 - 주소 운영 제공자: 미선정(T101 승인 필요)
 - 전국 지자체 공고·필지·도면: 미완료
-- T006 정책·세금·공간 사람 승인: 미완료
+- T006 정책·세금·공간·권리 사람 승인: 미완료
 
 ---
 
@@ -200,7 +232,7 @@ rhwp_extraction:
     document: molit_notice_2018_1086
     bytes: 12288
     sha256: fea461b2ce654ac9fde7aef15b487435af59cae86ea46e0bb13800846ea62e9a
-    prior_hash_matched: true
+    matched_previous_local_observation: true
     text_pages: 2
     markdown_pages: 2
     content_checks: [notice_2018_1086, gwangmyeong, hanam]
@@ -241,14 +273,26 @@ temporary_research_evidence:
     sha256: b2801068c4eb5b415a6ddddb544ad510e1affbe0d9ceb2efc19923a198b6d173
     retention: TEMPORARY_NOT_RETAINED
     role: LEGAL_EFFECT_CROSSCHECK_ONLY
+immutable_gazette_evidence:
+  count: 4
+  manifest: research-data/captures/manifest.csv
+  manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
+  page_render_reviewed: true
+  status: IMMUTABLE_CAPTURED
+  capture_time_precision: DATE_ONLY
+  response_headers_status: NOT_RETAINED
+  documents: [mofe_2017_114, mofe_2018_151, mofe_2022_189, mofe_2023_1]
 source_roles:
   decision_capable: [LEGAL_EFFECT, BOUNDARY]
   supporting_only: [EXPLANATION, STATUS_INDEX, DISCOVERY_ONLY]
+  law_center_content: STATUS_INDEX_ONLY_NO_LEGAL_EFFECT
 rights:
   robots_is_not_permission: true
   page_and_attachment_are_separate: true
-  uncaptured_hash_marker: PENDING_CAPTURE
+  uncaptured_hash_value: null
+  uncaptured_status: NOT_CAPTURED
   unknown_default: REVIEW_REQUIRED
+  gazette_content: ALLOWED_WITH_SOURCE_AND_INTEGRITY
 address_candidates:
   juso_search: REVIEW_REQUIRED
   juso_coordinate:
@@ -260,8 +304,8 @@ address_candidates:
     published_daily_limit: 40000
 remaining_gates:
   - per_document_rights_and_content_review
-  - immutable_byte_capture_and_sha256
+  - remaining_immutable_byte_capture_and_sha256
   - nationwide_notice_and_boundary_collection
   - address_provider_approval_T101
-  - policy_tax_spatial_human_approval_T006
+  - policy_tax_spatial_rights_human_approval_T006
 ```
