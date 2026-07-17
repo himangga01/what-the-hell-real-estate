@@ -27,9 +27,10 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [ ] T001 [P] 2016-07-10~2026-07-10 정책 사건의 발표·공포·시행·유예·해제·종료와 공식 URL을 `specs/001-real-estate-policy-dashboard/research-data/policy-events.csv`에 전수 정리한다.
 - [ ] T002 [P] 국가법령정보센터·전자관보·국토교통부·기획재정부·국세청·행정안전부·지자체와 운영 주소 정규화 후보 API의 출처 역할, SLA, 정확도, 장애 시 공식 확인 경로, robots·약관·권리와 캡처 해시를 `specs/001-real-estate-policy-dashboard/source-register.md`에 보강한다.
 - [ ] T003 [P] 4종 규제의 지정·해제·연장 공고, 시행 구간, 행정구역·필지·도면과 조건을 `specs/001-real-estate-policy-dashboard/research-data/designations.csv`에 정규화한다.
-- [ ] T004 [P] 취득세·재산세·종부세·양도소득세의 세율·공제·비과세·중과·감면·경과규정 원문 카드를 `specs/001-real-estate-policy-dashboard/research-data/tax-rule-cards/`에 작성한다.
-- [ ] T005 [P] 원문별 전문 보존·공개·RAG 색인 허용 여부와 링크 전용 정책을 `specs/001-real-estate-policy-dashboard/research-data/source-rights.csv`에 기록한다.
-- [ ] T006 정책·세금·공간 담당자가 알려진 공백, 충돌 문서와 초기 컷오프 매니페스트를 검수하고 `specs/001-real-estate-policy-dashboard/checklists/research-readiness.md`를 승인한다.
+- [x] T004 [P] 취득세·재산세·종부세·양도소득세의 세율·공제·비과세·중과·감면·경과규정 원문 카드를 `specs/001-real-estate-policy-dashboard/research-data/tax-rule-cards/`에 작성한다.
+- [x] T005 [P] 원문별 전문 보존·공개·RAG 색인 허용 여부와 링크 전용 정책을 `specs/001-real-estate-policy-dashboard/research-data/source-rights.csv`에 기록한다.
+- [ ] T006 정책·세금·공간·권리 담당자가 알려진 공백, 충돌 문서와 초기 컷오프 매니페스트를 검수하고 `specs/001-real-estate-policy-dashboard/checklists/research-readiness.md`를 승인한다.
+- [x] T111 [P] HWP 첨부를 공식 `edwardkim/rhwp` `v0.7.18`과 `SHA256SUMS.txt`로 검증해 임시 text·Markdown과 입력·도구·출력 SHA-256 매니페스트를 생성하는 fail-closed 파이프라인을 `scripts/research/`에 구현하고 `THIRD_PARTY_NOTICES.md`, `specs/001-real-estate-policy-dashboard/source-register.md`와 조사 게이트에 증거를 기록한다.
 
 **게이트**: `VERIFIED/PARTIAL/PENDING_REVIEW`가 모든 조사 행에 있고, P1 fixture에
 필요한 법적 공고·경계·해시가 `VERIFIED`가 아니면 다음 단계의 공개 데이터 적재를
@@ -94,8 +95,8 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [ ] T029 [P] [US1] `GET /api/v1/policies/current`의 예정·종료 제외와 권위 역할·비어 있지 않은 해시·정확한 selector를 가진 decision source 계약을 `backend/tests/contract/test_current_policies_api.py`에 작성한다.
 - [ ] T030 [P] [US1] `POST /api/v1/areas/resolve`의 4종 결과·조건부·공식 확인 계약을 `backend/tests/contract/test_area_resolve_api.py`에 작성한다.
 - [ ] T031 [P] [US1] 발표일과 시행일이 다른 정책의 current-only 통합 테스트를 `backend/tests/integration/test_current_policy_projection.py`에 작성한다.
-- [ ] T032 [P] [US1] 2023-01-05, 2025-10-16/20, 2026-06-30/07-01/04/05 규제 경계 골든 사례를 `backend/tests/golden/test_designation_timeline.py`와 `backend/tests/fixtures/designations/`에 작성한다.
-- [ ] T033 [P] [US1] 필지 내부·외부·경계·중첩·도면 충돌과 과거 행정코드 공간 테스트를 `backend/tests/golden/test_geospatial_designations.py`에 작성한다.
+- [ ] T032 [P] [US1] 최소 5개 기준일을 포함해 2023-01-05, 2025-10-16/20, 2026-06-30/07-01/04/05 규제 경계 골든 사례를 `backend/tests/golden/test_designation_timeline.py`와 `backend/tests/fixtures/designations/`에 작성한다.
+- [ ] T033 [P] [US1] 최소 30개 검증 주소로 필지 내부·외부·경계·중첩·도면 충돌과 과거 행정코드 공간 테스트를 `backend/tests/golden/test_geospatial_designations.py`에 작성한다.
 - [ ] T034 [P] [US1] 기준일, 신선도, 텍스트 판정 상태와 키보드 흐름의 실패 E2E를 `frontend/tests/e2e/current-and-address.spec.ts`에 작성한다.
 
 ### 구현
@@ -128,7 +129,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [ ] T046 [P] [US2] TRUE/FALSE/UNKNOWN 전파와 영향도별 누락 질문 테스트를 `backend/tests/unit/rules/test_three_valued_analysis.py`에 작성한다.
 - [ ] T047 [P] [US2] 세대원별 소유지분·소유기간·당시 세대 귀속과 과거 처분 이력으로 취득세·양도세·종부세별 주택 수가 독립 파생되는지 `backend/tests/golden/test_tax_specific_home_counts.py`에 작성한다.
 - [ ] T048 [P] [US2] 일반 주택 취득·중과·일시적 2주택·생애최초 감면 골든 사례를 `backend/tests/golden/tax/test_acquisition_pack.py`에 작성한다.
-- [ ] T049 [P] [US2] 6월 1일·공시가격·세부담 상한·공제 경계 골든 사례를 `backend/tests/golden/tax/test_holding_pack.py`에 작성한다.
+- [ ] T049 [P] [US2] 6월 1일·공시가격·주택 과세표준 상한·공제 경계 골든 사례를 `backend/tests/golden/tax/test_holding_pack.py`에 작성한다.
 - [ ] T050 [P] [US2] 1세대 1주택·12억원·보유/거주·일시적 2주택·장기보유공제 골든 사례를 `backend/tests/golden/tax/test_disposal_pack.py`에 작성한다.
 - [ ] T051 [P] [US2] 2026-05-09 전후, 계약금 증빙, 지역별 기한과 토허 여부 경과 테스트를 `backend/tests/golden/tax/test_2026_surcharge_transition.py`에 작성한다.
 - [ ] T052 [P] [US2] 상속·증여 부분지원 안내, 공동명의·신탁·입주권·비거주자 미지원 종료와 개인정보 금지 필드를 `backend/tests/contract/test_analysis_safety_boundaries.py`에 작성한다.
@@ -162,7 +163,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 
 - [ ] T064 [P] [US3] 정책 이력·근거 상세와 함께 `ANSWERED`의 주장별 인용, 근거 부족 무답변, 개인 판정 질문의 분석 라우팅 API 계약을 `backend/tests/contract/test_history_evidence_questions_api.py`에 작성한다.
 - [ ] T065 [P] [US3] 게시·권리·기준일 필터, 전문+벡터 결합, 근거 부족 거부와 개인 사실이 모델 입력에서 제거되는지 `backend/tests/integration/test_hybrid_evidence_retrieval.py`에 작성한다.
-- [ ] T066 [P] [US3] 연장·정정·종료·대체가 버전별로 보이는 이력 테스트를 `backend/tests/golden/test_policy_history.py`에 작성한다.
+- [ ] T066 [P] [US3] 대표 정책 최소 20개에서 연장·정정·종료·대체가 버전별로 보이는 이력 테스트를 `backend/tests/golden/test_policy_history.py`에 작성한다.
 - [ ] T067 [P] [US3] 과거 문서 현재 오인 방지, 주장별 인용과 근거 부족 UX의 실패 E2E를 `frontend/tests/e2e/history-and-evidence.spec.ts`에 작성한다.
 
 ### 구현
@@ -273,6 +274,7 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 ### 단계 의존성
 
 - Phase 1 조사 완료는 모든 공개 데이터 작업을 막는 게이트다.
+- T111은 Phase 1 HWP 증거 추출을 지원하지만 원문 권리·불변 캡처·T006 사람 승인을 완료 처리하지 않는다.
 - Phase 2 설정은 조사와 병렬 가능하지만 검증되지 않은 규칙·경계를 fixture로 만들지 않는다.
 - Phase 3 공통 기반은 모든 사용자 스토리의 선행 조건이다.
 - US1~US4는 공통 기반 후 코드 수준에서 병렬 가능하지만, 공개 전달은 US1 → US2 → US3 → US4 순이다.
@@ -330,9 +332,10 @@ US2의 세금팩은 공통 사실 모델 T055 이후 T056~T058을 병렬로 구�
 ## AI Context (English)
 
 ```yaml
-task_count: 110
+task_count: 111
 blocking_order:
   - T098_repository_hygiene
+  - T111_rhwp_research_extraction
   - deep_research_gate_and_setup
   - T099_dependency_locks_before_T012_CI
   - shared_foundation
@@ -343,9 +346,10 @@ story_tasks:
   US2: [T045-T063]
   US3: [T064-T074]
   US4: [T075-T087, T103-T104]
-cross_cutting_supplements: [T098-T099, T105-T110]
+cross_cutting_supplements: [T098-T099, T105-T110, T111]
 supplemental_work_packages:
   setup: T098-T099
+  research: T111
   US1: T100-T102
   US4: T103-T104
   delivery: T105-T110

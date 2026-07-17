@@ -1,6 +1,7 @@
 # 구현 계획: 대한민국 부동산 정책·세금 분석 대시보드
 
-**브랜치**: `001-real-estate-policy-dashboard` | **작성일**: 2026-07-10  
+**브랜치**: `001-real-estate-policy-dashboard` | **작성일**: 2026-07-10
+
 **기능 명세**: [spec.md](./spec.md) | **헌장**: [constitution.md](../../.specify/memory/constitution.md)
 
 ## 요약
@@ -105,6 +106,9 @@ flowchart LR
 - 국가법령정보센터·전자관보·국토교통부·국세청 기본 어댑터와
   기획재정부·행정안전부·지자체 추가 어댑터가 같은 조건부 요청·권리·차단 계약을
   통과하도록 공통 fixture 계약 테스트를 둔다.
+- HWP 첨부는 공식 `edwardkim/rhwp` `v0.7.18` 릴리스와 `SHA256SUMS.txt`를 고정해
+  임시 추출하고 입력·도구·출력 SHA-256 매니페스트를 남긴다. 권리 승인 전 원문·추출물은
+  저장소나 RAG에 보존하지 않으며 HWPX 추출은 호환성 테스트 전까지 비활성화한다.
 
 ### 2. 시공간 판정
 
@@ -327,6 +331,12 @@ address_resolution:
   fixture_provider: deterministic_test_only
   production_provider: enable_after_terms_accuracy_and_privacy_review
   failure_state: REQUIRES_OFFICIAL_CHECK
+research_extraction:
+  hwp_tool: edwardkim/rhwp
+  hwp_tool_version: v0.7.18
+  checksum_required: true
+  default_retention: TEMPORARY_NOT_RETAINED
+  hwpx_enabled: false
 delivery:
   dependency_locks: [uv_lock, npm_package_lock]
   images: [non_root_backend, static_frontend]

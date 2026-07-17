@@ -1,6 +1,7 @@
 # 요구사항 추적성 매트릭스
 
-**기준 명세**: [spec.md](./spec.md)  
+**기준 명세**: [spec.md](./spec.md)
+
 **목적**: 요구사항이 데이터 모델, API 계약, 실패 테스트와 구현 작업까지 이어지는지 확인한다.
 
 ## 기능 요구사항
@@ -64,6 +65,7 @@
 | 재현 가능한 설치와 저장소 비밀 보호 | T012, T098~T099 | `.gitignore` 금지 패턴과 잠금 파일 해시 기반 CI 설치 검사 |
 | 운영 주소 정규화와 안전한 실패 | T100~T101 | 제공자 계약·비식별·장애 테스트와 `REQUIRES_OFFICIAL_CHECK` fallback |
 | 전체 계획 출처 어댑터 | T079, T103~T104 | 7개 기관군의 조건부 요청·권리·차단 fixture 계약 통과 |
+| HWP 조사 추출 공급망·감사 | T111 | `rhwp v0.7.18` 공식 checksum, 입력·도구·출력 hash와 임시 보존 매니페스트 검증 |
 | RAG 성능과 관측 | T088~T089 | 근거 검색 p95 4초와 지연 메트릭·알림 증거 |
 | health·readiness 계약 | T105 | API liveness, DB·게시 스냅샷 readiness와 정적 웹 probe 계약 통과 |
 | 프로덕션 이미지·호스팅 계약과 승격 | T106~T108 | 비루트 smoke test, 승인된 환경 계약, staging 검증과 동일 digest 무재빌드 승격 |
@@ -93,7 +95,7 @@
 ```yaml
 functional_requirements: 34
 ux_requirements: 10
-implementation_tasks: 110
+implementation_tasks: 111
 traceability_axes:
   - requirement_to_contract
   - requirement_to_data_model
