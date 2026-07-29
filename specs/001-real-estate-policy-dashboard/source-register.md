@@ -268,6 +268,49 @@ Windows x86_64 릴리스를 다음 조건으로 검증했다.
 재정경제부·행정안전부·국세청의 기간 전체 역방향 열거가 끝나지 않았으므로 T001은 계속
 미완료다.
 
+### 5.5 PDF 인식 조사 파이프라인
+
+2026-07-29 현재 PDF는 pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를
+300 DPI PNG로 렌더링한다. 모든 PNG에 Docling 레이아웃 전용 패스를 먼저 적용하며,
+스캔·저텍스트·복합 페이지는 RapidOCR·ONNX Runtime CPU로 인식하고 표 페이지는
+Docling 내부 RapidOCR와 TableFormer `accurate`로 행·열·병합셀 구조를 복원한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/research/extract-pdf.ps1 `
+  -InputPath <공식-원문.pdf> `
+  -OutputDirectory <존재하지-않는-새-출력-경로>
+```
+
+- 런타임: Python `3.12.13`, RapidOCR `3.9.2`, ONNX Runtime `1.28.0`,
+  Docling `2.115.0`, docling-ibm-models `3.13.3`, `CPUExecutionProvider`
+- 라우팅: 모든 PNG를 Docling 레이아웃 전용 패스로 검사한 뒤 신뢰 가능한 내장 텍스트는
+  `EMBEDDED_TEXT`, 스캔·저텍스트·복합 페이지는 `RAPIDOCR`, 표 페이지는
+  `RAPIDOCR_TABLEFORMER`
+- 렌더링: 페이지별 300 DPI PNG
+- 잠금: 7개 모델 artifact·11개 파일·413,788,439바이트의 출처·라이선스·SHA-256을
+  `tools/pdf-ocr/models.lock.json`에 기록하고 실행 전에 로컬 모델 홈과 대조
+- 증거: 원본·페이지 이미지·OCR JSON·구조 JSON·표 HTML·Markdown SHA-256,
+  polygon·bbox·confidence·행·열·병합셀, `PENDING_HUMAN_REVIEW`
+- 게시 경계: 기존 출력 덮어쓰기 금지, 임시 디렉터리 처리 후 계약 검증을 통과한 결과만
+  원자 게시, 런타임 자동 다운로드 금지, 기본 보존 `TEMPORARY_NOT_RETAINED`
+- 자동 회귀: `508 passed, 1 skipped`; skip은 Windows 심볼릭 링크 권한 부족 1건이며
+  같은 fail-closed 분기의 권한 독립 회귀는 통과
+
+전자관보 PDF 4건은 실제 Windows CPU 런타임에서 모두 종료 코드 0으로 처리됐다. 각
+문서는 1/1쪽, page gap 없음, `EMBEDDED_TEXT` 경로, 표 수 0개였고 입력·출력 해시 연쇄가
+일치했다. 원본 300 DPI PNG를 확인한 결과 네 문서 모두 실제 행·열 표가 없어 표 수 0개가
+원본과 일치한다. 따라서 자동 회귀가 표 topology 계약을 검증하더라도 이 네 표본만으로
+실제 표 인식 품질을 사람 검수 완료했다고 주장하지 않는다.
+
+AI 시각 사전대조에서는 공고번호·날짜·관할·법적 효력 값이 원본과 일치했다. 그러나
+사람 검수자가 아니므로 네 매니페스트와
+[`pdf-ocr-acceptance.md`](./research-data/pdf-ocr-acceptance.md)는 모두
+`PENDING_USER_HUMAN_REVIEW`다. 응답 헤더도 보존되지 않아 원문 권리 검토가 남았다.
+T112와 조사 게이트는 미완료이고 파생물의 공개·RAG 투입은 승인되지 않았다.
+
+과거 PaddleOCR·PaddlePaddle 구성은 Windows CPU `phi.dll` 접근 위반 때문에 중단됐다.
+이는 대체 결정의 실패 이력일 뿐 현재 실행 구성이나 Linux 전환 차단 사유가 아니다.
+
 ## 6. 초기 사실 카드와 남은 증거
 
 ### `FACT.REGULATED_AREAS.2026-07-10`
@@ -329,6 +372,48 @@ snapshot_cutoff: 2026-07-10T23:59:59+09:00
 publication_ready_sources: 0
 provider_sla_publicly_confirmed: false
 freshness_values_are_internal_targets: true
+pdf_ocr:
+  implemented_on: 2026-07-29
+  task: T112
+  status: IMPLEMENTED_AUTOMATED_ACCEPTANCE_PASS_HUMAN_REVIEW_PENDING
+  python_version: 3.12.13
+  rapidocr_version: 3.9.2
+  onnxruntime_version: 1.28.0
+  docling_version: 2.115.0
+  docling_ibm_models_version: 3.13.3
+  execution_provider: CPUExecutionProvider
+  pipeline:
+    - pypdf_embedded_text_first
+    - pymupdf_render_every_page_300_dpi
+    - docling_layout_only_every_png
+    - rapidocr_for_scanned_low_text_or_complex_pages
+    - docling_rapidocr_tableformer_accurate_for_table_pages
+  recognition_model: korean_PP-OCRv5_rec_mobile
+  embedded_text_min_non_whitespace_chars: 30
+  invalid_character_ratio_max: 0.05
+  render_dpi: 300
+  model_lock: tools/pdf-ocr/models.lock.json
+  locked_model_artifacts: 7
+  locked_model_file_count: 11
+  locked_model_bytes: 413788439
+  tests: 508_passed_1_skipped
+  sample_documents_processed: 4
+  sample_pages_processed: 4
+  sample_routes: [EMBEDDED_TEXT, EMBEDDED_TEXT, EMBEDDED_TEXT, EMBEDDED_TEXT]
+  sample_table_count: 0
+  human_reviewed_sample_outputs: 0
+  human_review_status: PENDING_USER_HUMAN_REVIEW
+  acceptance_report: research-data/pdf-ocr-acceptance.md
+  default_retention: TEMPORARY_NOT_RETAINED
+  historical_superseded_runtime:
+    packages: [PaddleOCR, PaddlePaddle]
+    issue: WINDOWS_CPU_PHI_DLL_ACCESS_VIOLATION
+    current_blocker: false
+  current_gaps:
+    - user_human_review_of_four_samples
+    - source_rights_response_headers_not_retained
+    - no_real_table_in_four_approved_samples
+  legal_tax_spatial_verification_from_ocr_alone: false
 rhwp_extraction:
   version: v0.7.18
   archive_sha256_windows_x86_64: BD0B3280C0B87580BFC8C86AF337609ACF939C5F8F1DA6AB3EE73955064420FD

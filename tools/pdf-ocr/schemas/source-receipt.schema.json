@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://what-the-hell-real-estate.local/schemas/source-receipt.schema.json",
+  "title": "PDF OCR model source receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifacts"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$)).+$"
+    },
+    "entrypointPath": {
+      "anyOf": [
+        {
+          "const": "."
+        },
+        {
+          "$ref": "#/$defs/relativePath"
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "role",
+        "name",
+        "source_url",
+        "license",
+        "root",
+        "entrypoint"
+      ],
+      "properties": {
+        "component": {
+          "enum": ["RAPIDOCR", "DOCLING", "TABLEFORMER"]
+        },
+        "role": {
+          "enum": [
+            "rapidocr_det",
+            "rapidocr_cls",
+            "rapidocr_rec",
+            "rapidocr_rec_keys",
+            "rapidocr_font",
+            "docling_layout",
+            "tableformer"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "pattern": ".*\\S.*"
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "license": {
+          "type": "string",
+          "pattern": ".*\\S.*"
+        },
+        "root": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "entrypoint": {
+          "$ref": "#/$defs/entrypointPath"
+        }
+      }
+    }
+  }
+}

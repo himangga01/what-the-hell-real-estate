@@ -23,7 +23,7 @@
 | `source-rights.csv` | 전문 보존·공개·RAG·링크 정책 | 구조 완료·사람 검수 대기 | robots·약관 증거 해시, 하위 지자체 등록, 문서별 권리 승인과 남은 원문 캡처 |
 | `tax-rule-cards/` | 4대 주택 세목의 구현 전 규칙 카드 | 조사본 완료·세무 검수 대기 | 조문·부칙·경계 골든 승인 |
 | `captures/` | 불변 보존한 공식 원문과 SHA-256 매니페스트 | 부분 완료 | 나머지 정책·지정·권리 근거 원문 캡처 |
-| `cutoff-manifest.csv` | 조사 산출물별 컷오프·해시·승인 상태 | 12개 항목 해시 고정·승인 대기 | 네 담당자 승인과 승인 커밋 기록 |
+| `cutoff-manifest.csv` | 조사 산출물별 컷오프·byte 수·해시·승인 상태 | PDF 인식 검수 보고서를 포함한 13개 항목 해시 고정·승인 대기 | 네 담당자 승인과 승인 커밋 기록 |
 
 컷오프 매니페스트의 텍스트 SHA-256은 UTF-8·LF 바이트를 기준으로 한다. 루트
 `.gitattributes`가 매니페스트 대상 CSV·세금 카드·출처 레지스트리를 `eol=lf`로 고정하고,
@@ -107,6 +107,37 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/research/extract
 - Windows PowerShell 5.1의 단위 테스트와 로컬 리디렉션 스모크 테스트는 필수 CI에서
   실행하며, 공식 릴리스 다운로드 통합 테스트는 수동 CI로 다시 실행할 수 있다.
 
+## PDF 임시 인식
+
+PDF는 다음 명령으로 제품 백엔드와 분리된 Python 3.12 조사 도구에서 처리한다. 출력 경로는
+존재하지 않는 새 디렉터리여야 한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/research/extract-pdf.ps1 `
+  -InputPath <공식-원문.pdf> `
+  -OutputDirectory <새-임시-출력-경로>
+```
+
+- 내장 텍스트가 30자 이상이고 오류문자 비율이 5% 이하이면 원문 텍스트를 우선한다.
+- pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를 300 DPI PNG로 렌더링한다.
+  모든 PNG에 Docling 레이아웃 전용 패스를 먼저 적용한다.
+- 스캔·저텍스트·복합 페이지는 RapidOCR·ONNX Runtime CPU로 인식하고, 표 페이지는
+  Docling 내부 RapidOCR와 TableFormer `accurate`로 행·열·병합셀을 복원한다.
+- 원본·페이지 이미지·OCR JSON·구조 JSON·표 HTML·Markdown SHA-256과
+  polygon·bbox·confidence·표 topology를 기록한다.
+- 모델 7개 artifact·11개 파일은 `tools/pdf-ocr/models.lock.json`의 출처·라이선스·
+  바이트·SHA-256과 일치해야 하며 런타임 자동 다운로드를 금지한다.
+- 자동 회귀는 `508 passed, 1 skipped`이고 전자관보 4건은 각각 1/1쪽을 종료 코드 0으로
+  처리했으며 입력·출력 해시 연쇄도 일치했다.
+- 네 원본 모두 실제 행·열 표가 없어 표 수 0개가 원본과 일치한다. 이 표본만으로 실표
+  인식 품질을 사람 검수 완료했다고 판단하지 않는다.
+- AI 시각 사전대조는 일치했지만 사람 검수가 아니므로 네 결과는
+  `PENDING_USER_HUMAN_REVIEW`이며 상세 근거는
+  [`pdf-ocr-acceptance.md`](./pdf-ocr-acceptance.md)에 기록한다.
+- 과거 PaddleOCR·PaddlePaddle `phi.dll` 충돌은 대체 이력이고 현재 실행 차단 사유가 아니다.
+- 미승인 OCR 파생물은 공개 fixture나 RAG에 추가하지 않는다.
+- OCR 성공만으로 법률·세금·공간 사실이나 원문 이용권한을 `VERIFIED`로 바꾸지 않는다.
+
 ---
 
 ## English AI Context
@@ -123,8 +154,8 @@ row_counts:
   tax_rule_cards: 4
   immutable_gazette_captures: 4
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
-  cutoff_manifest_artifacts: 12
-  cutoff_manifest_sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
+  cutoff_manifest_artifacts: 13
+  cutoff_manifest_sha256: c12f095ce98252955f187e0a83979c5dfa110c43ffc12b14308743f1aed6cc14
   cutoff_hash_byte_policy: UTF8_LF_TEXT_AND_RAW_PDF_BYTES
 files:
   policy-events.csv: PARTIAL
@@ -134,8 +165,44 @@ files:
   source-rights.csv: STRUCTURE_COMPLETE_REVIEW_PENDING
   tax-rule-cards: DRAFT_COMPLETE_TAX_REVIEW_PENDING
   captures/manifest.csv: PARTIAL_4_IMMUTABLE_GAZETTE_PDFS
-  cutoff-manifest.csv: HASHED_12_ARTIFACTS_APPROVAL_PENDING
+  cutoff-manifest.csv: HASHED_13_ARTIFACTS_APPROVAL_PENDING
+  pdf-ocr-acceptance.md: AI_VISUAL_PRECHECK_COMPLETE_USER_HUMAN_REVIEW_PENDING
+pdf_ocr:
+  task: T112
+  implementation_status: CODE_AND_CONTRACT_TESTS_COMPLETE
+  automated_acceptance_status: PASS
+  human_acceptance_status: PENDING_USER_HUMAN_REVIEW
+  python_version: 3.12.13
+  rapidocr_version: 3.9.2
+  onnxruntime_version: 1.28.0
+  docling_version: 2.115.0
+  docling_ibm_models_version: 3.13.3
+  execution_provider: CPUExecutionProvider
+  pipeline:
+    - pypdf_embedded_text_first
+    - pymupdf_render_every_page_300_dpi
+    - docling_layout_only_every_png
+    - rapidocr_for_scanned_low_text_or_complex_pages
+    - docling_rapidocr_tableformer_accurate_for_table_pages
+  recognition_model: korean_PP-OCRv5_rec_mobile
+  render_dpi: 300
+  model_lock: ../../../tools/pdf-ocr/models.lock.json
+  locked_model_artifacts: 7
+  locked_model_file_count: 11
+  locked_model_bytes: 413788439
+  contract_and_regression_tests: 508_passed_1_skipped
+  immutable_gazette_samples_processed: 4
+  immutable_gazette_pages_processed: 4
+  actual_table_samples: 0
+  human_reviewed_sample_outputs: 0
+  acceptance_report: pdf-ocr-acceptance.md
+  output_retention: TEMPORARY_NOT_RETAINED
+  human_review_required_fields: [NOTICE_NUMBER, DATE, AREA, JURISDICTION]
+  verified_fact_promotion_allowed: false
 known_gaps:
+  - id: GAP-PDF-OCR-HUMAN-AND-REAL-TABLE-REVIEW
+    status: PARTIAL
+    statement: four_real_samples_processed_and_ai_prechecked_but_user_human_review_pending_and_samples_contain_no_actual_tables
   - id: GAP-SPECULATION-AREA-NATIONAL-COMPLETENESS
     status: PARTIAL
     period: 2016-07-10/2026-07-10

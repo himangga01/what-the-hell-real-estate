@@ -151,6 +151,7 @@
 - **FR-032**: 세금 결과는 본세, 지방세·부가세목, 공제·감면, 반올림, 미포함 항목과 개략값 사용 여부를 분리해서 보여줘야 한다.
 - **FR-033**: 일반 정책 RAG는 개인 적용 여부·세액 판정 질문에 답을 생성하지 않고 개인 분석 흐름으로 안내해야 한다.
 - **FR-034**: RAG가 `ANSWERED`를 반환할 때는 비어 있지 않은 답과 핵심 주장별 최소 1개의 게시 근거 인용을 제공해야 하며, 근거 부족 상태에서는 실질 답변을 제공해서는 안 된다.
+- **FR-035**: PDF에서 파생한 텍스트·표·문서 구조는 원본 PDF와 페이지, 추출 방식, 도구·모델 버전, 신뢰도, 입력·출력 해시와 사람 검수 상태를 추적할 수 있어야 하며, 인식 결과만으로 법적 사실을 확정해서는 안 된다.
 
 ### UX 요구사항
 
@@ -175,6 +176,7 @@
 - **사용자 시나리오**: 거래 단계, 부동산, 세대, 보유·거주와 가격 입력.
 - **분석 결과**: 적용·제외 규칙, 개략 금액, 누락 입력, 경고와 근거.
 - **근거 인용**: 원문 문서와 조문·페이지·문단 범위의 연결.
+- **PDF 인식 증거**: 원본·페이지, 처리 방식, 도구·모델 버전, 좌표·신뢰도, 입력·출력 해시와 사람 검수 상태.
 - **검수 결정**: 담당자, 시각, 승인·반려 사유와 대체 버전.
 
 ## 성공 기준
@@ -189,6 +191,7 @@
 - **SC-006**: 게시된 규칙 변경의 100%가 최소 1개 이상의 골든 테스트와 연결된다.
 - **SC-007**: 근거 없는 실질 주장 생성률이 검증 질문 세트에서 0%다.
 - **SC-008**: 저장에 동의하지 않은 사용자 시나리오가 서버 영구 저장소에 남지 않는다.
+- **SC-009**: 조사에 사용되는 PDF 인식 결과의 100%가 원본 PDF·페이지와 입력·모델·출력 해시를 연결하고, 공고번호·날짜·면적·지역명은 사람 검수 전 게시되지 않는다.
 
 ## 가정과 범위
 
@@ -197,6 +200,10 @@
 - 최초 공개 데이터는 2026-07-10에 검수 완료된 스냅샷으로 시작한다.
 - 전국 토지거래허가구역의 필지 경계가 확보되지 않은 지역은 공식 확인 필요로 표시한다.
 - 공개 정부 원문과 승인된 공공 API만 자동 수집하고 접근 제한을 우회하지 않는다.
+- PDF는 pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를 300 DPI PNG로
+  렌더링한다. 모든 PNG에 Docling 레이아웃 전용 패스를 먼저 적용하며, 스캔·저텍스트·
+  복합 페이지는 RapidOCR·ONNX Runtime CPU로 인식하고 표 페이지는 Docling 내부
+  RapidOCR와 TableFormer `accurate`로 행·열·병합셀 구조를 복원한다.
 - 경쟁 서비스는 메뉴와 사용자 흐름 참고에만 사용하며 계산식과 콘텐츠를 복제하지 않는다.
 
 ---
@@ -221,7 +228,7 @@ acquisition, holding, and disposition consequences with official evidence.
 - `CURRENT_ONLY`: FR-001..FR-003, FR-018..FR-019
 - `GEO_TEMPORAL`: FR-004..FR-006, FR-027
 - `PERSONAL_ANALYSIS`: FR-007..FR-016, FR-024, FR-030..FR-032
-- `EVIDENCE_RAG`: FR-017, FR-020..FR-023, FR-033..FR-034
+- `EVIDENCE_RAG`: FR-017, FR-020..FR-023, FR-033..FR-035
 - `PRIVACY_GOVERNANCE`: FR-025..FR-029
 
 ### Scope Boundary
@@ -229,4 +236,5 @@ acquisition, holding, and disposition consequences with official evidence.
 The v1 result is an evidence-backed applicability assessment and rough estimate,
 not a tax filing calculation or professional opinion. When official parcel data
 or exception facts are missing, return `REQUIRES_OFFICIAL_CHECK` rather than a
-guessed boolean.
+guessed boolean. PDF-derived evidence must retain original-page provenance,
+tool and model versions, confidence, hashes, and human-review state.

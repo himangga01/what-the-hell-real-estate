@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://what-the-hell-real-estate.local/schemas/page-ocr-2.0.0.json",
+  "title": "PDF OCR Page Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "page_number",
+    "engine",
+    "model_name",
+    "coordinate_space",
+    "blocks",
+    "minimum_confidence",
+    "raw"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "page_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "engine": {
+      "enum": ["EMBEDDED_TEXT", "RAPIDOCR"]
+    },
+    "model_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "coordinate_space": {
+      "$ref": "#/$defs/coordinateSpace"
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "minimum_confidence": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "raw": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "engine": {
+            "const": "RAPIDOCR"
+          }
+        },
+        "required": ["engine"]
+      },
+      "then": {
+        "properties": {
+          "blocks": {
+            "minItems": 1
+          },
+          "minimum_confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "engine": {
+            "const": "EMBEDDED_TEXT"
+          }
+        },
+        "required": ["engine"]
+      },
+      "then": {
+        "properties": {
+          "model_name": {
+            "const": "embedded-text"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "coordinateSpace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "width",
+        "height",
+        "render_dpi",
+        "pdf_points_per_pixel"
+      ],
+      "properties": {
+        "unit": {
+          "const": "pixel"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "render_dpi": {
+          "const": 300
+        },
+        "pdf_points_per_pixel": {
+          "const": 0.24
+        }
+      }
+    },
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "bbox": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "recognition_confidence",
+        "polygon",
+        "bbox",
+        "reading_order",
+        "model_name",
+        "source_page_number"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recognition_confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "polygon": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "reading_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "model_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_page_number": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "schema_version": "2.0.0",
+  "generated_at": "2026-07-29T01:24:55+09:00",
+  "cache_environment_variable": "PDF_OCR_MODEL_HOME",
+  "packages": [
+    {
+      "name": "rapidocr",
+      "version": "3.9.2"
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.28.0"
+    },
+    {
+      "name": "docling",
+      "version": "2.115.0"
+    },
+    {
+      "name": "docling-ibm-models",
+      "version": "3.13.3"
+    }
+  ],
+  "artifacts": [
+    {
+      "component": "RAPIDOCR",
+      "role": "rapidocr_det",
+      "name": "ch_PP-OCRv5_det_mobile",
+      "source_url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx",
+      "license": "Apache-2.0",
+      "root": "rapidocr/det",
+      "entrypoint": "ch_PP-OCRv5_det_mobile.onnx",
+      "files": [
+        {
+          "path": "ch_PP-OCRv5_det_mobile.onnx",
+          "bytes": 4819576,
+          "sha256": "sha256:4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae"
+        }
+      ]
+    },
+    {
+      "component": "RAPIDOCR",
+      "role": "rapidocr_cls",
+      "name": "ch_ppocr_mobile_v2.0_cls_mobile",
+      "source_url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+      "license": "Apache-2.0",
+      "root": "rapidocr/cls",
+      "entrypoint": "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+      "files": [
+        {
+          "path": "ch_ppocr_mobile_v2.0_cls_mobile.onnx",
+          "bytes": 585532,
+          "sha256": "sha256:e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c"
+        }
+      ]
+    },
+    {
+      "component": "RAPIDOCR",
+      "role": "rapidocr_rec",
+      "name": "korean_PP-OCRv5_rec_mobile",
+      "source_url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile.onnx",
+      "license": "Apache-2.0",
+      "root": "rapidocr/rec",
+      "entrypoint": "korean_PP-OCRv5_rec_mobile.onnx",
+      "files": [
+        {
+          "path": "korean_PP-OCRv5_rec_mobile.onnx",
+          "bytes": 13488748,
+          "sha256": "sha256:cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b"
+        }
+      ]
+    },
+    {
+      "component": "RAPIDOCR",
+      "role": "rapidocr_rec_keys",
+      "name": "ppocrv5_korean_dict",
+      "source_url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/paddle/PP-OCRv5/rec/korean_PP-OCRv5_rec_mobile/ppocrv5_korean_dict.txt",
+      "license": "Apache-2.0",
+      "root": "rapidocr/rec-keys",
+      "entrypoint": "ppocrv5_korean_dict.txt",
+      "files": [
+        {
+          "path": "ppocrv5_korean_dict.txt",
+          "bytes": 47451,
+          "sha256": "sha256:a88071c68c01707489baa79ebe0405b7beb5cca229f4fc94cc3ef992328802d7"
+        }
+      ]
+    },
+    {
+      "component": "RAPIDOCR",
+      "role": "rapidocr_font",
+      "name": "Noto Sans KR",
+      "source_url": "https://github.com/google/fonts/tree/7ff85c87f93ea6cca5f41c69f2e4edcb90240f26/ofl/notosanskr",
+      "license": "OFL-1.1",
+      "root": "rapidocr/font",
+      "entrypoint": "NotoSansKR[wght].ttf",
+      "files": [
+        {
+          "path": "NotoSansKR[wght].ttf",
+          "bytes": 10414588,
+          "sha256": "sha256:194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252"
+        },
+        {
+          "path": "OFL.txt",
+          "bytes": 4388,
+          "sha256": "sha256:1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+        }
+      ]
+    },
+    {
+      "component": "DOCLING",
+      "role": "docling_layout",
+      "name": "docling-layout-heron",
+      "source_url": "https://huggingface.co/docling-project/docling-layout-heron/tree/8f39ad3c0b4c58e9c2d2c84a38465abf757272d8",
+      "license": "Apache-2.0",
+      "root": "docling/docling-project--docling-layout-heron",
+      "entrypoint": ".",
+      "files": [
+        {
+          "path": "config.json",
+          "bytes": 3268,
+          "sha256": "sha256:fdea30805ce2f5666b147fca941dcdd27ad468e27d6ed21902207d3da056a97d"
+        },
+        {
+          "path": "model.safetensors",
+          "bytes": 171658996,
+          "sha256": "sha256:00333a43451945aaf89db8ca9c0a17e75d1537c17db60fdb91aa95f4c7929e0c"
+        },
+        {
+          "path": "preprocessor_config.json",
+          "bytes": 444,
+          "sha256": "sha256:cd38cd59999e7a95d68e487fbe5132df3d4e5c32a0836add57e6126ba0c4eaf1"
+        }
+      ]
+    },
+    {
+      "component": "TABLEFORMER",
+      "role": "tableformer",
+      "name": "TableFormer accurate",
+      "source_url": "https://huggingface.co/docling-project/docling-models/tree/fc0f2d45e2218ea24bce5045f58a389aed16dc23/model_artifacts/tableformer/accurate",
+      "license": "CDLA-Permissive-2.0 (model artifacts); MIT (inference code)",
+      "root": "docling/docling-project--docling-models",
+      "entrypoint": "model_artifacts/tableformer/accurate",
+      "files": [
+        {
+          "path": "model_artifacts/tableformer/accurate/tableformer_accurate.safetensors",
+          "bytes": 212758388,
+          "sha256": "sha256:2a7d6c924b3cd12fb99a09280ca9c33a89c5d60b93253617d2e088c1a40374d9"
+        },
+        {
+          "path": "model_artifacts/tableformer/accurate/tm_config.json",
+          "bytes": 7060,
+          "sha256": "sha256:984e122ceb8ccf84d84c9d2882f6f2302a44b4f1e577babd6289892c36f3cffd"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://what-the-hell-real-estate.local/schemas/pdf-ocr-manifest-2.0.0.json",
+  "title": "PDF OCR Evidence Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "started_at",
+    "completed_at",
+    "input",
+    "runtime",
+    "pages",
+    "retention",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "status": {
+      "enum": ["SUCCEEDED", "FAILED"]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input": {
+      "$ref": "#/$defs/input"
+    },
+    "runtime": {
+      "$ref": "#/$defs/runtime"
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "retention": {
+      "$ref": "#/$defs/retention"
+    },
+    "warnings": {
+      "$ref": "#/$defs/warnings"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "bytes", "sha256"],
+      "properties": {
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_name",
+        "mime_type",
+        "bytes",
+        "sha256",
+        "page_count"
+      ],
+      "properties": {
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mime_type": {
+          "const": "application/pdf"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "modelFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component",
+        "role",
+        "name",
+        "source_url",
+        "license",
+        "file_name",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "component": {
+          "enum": ["RAPIDOCR", "DOCLING", "TABLEFORMER"]
+        },
+        "role": {
+          "enum": [
+            "rapidocr_det",
+            "rapidocr_cls",
+            "rapidocr_rec",
+            "rapidocr_rec_keys",
+            "rapidocr_font",
+            "docling_layout",
+            "tableformer"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": "string",
+          "pattern": "^https://",
+          "minLength": 9
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "python_version",
+        "rapidocr_version",
+        "onnxruntime_version",
+        "execution_provider",
+        "docling_version",
+        "docling_ibm_models_version",
+        "table_mode",
+        "render_dpi",
+        "raw_ocr_threshold",
+        "human_review_threshold",
+        "model_files"
+      ],
+      "properties": {
+        "python_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rapidocr_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "onnxruntime_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "execution_provider": {
+          "const": "CPUExecutionProvider"
+        },
+        "docling_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "docling_ibm_models_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table_mode": {
+          "const": "accurate"
+        },
+        "render_dpi": {
+          "const": 300
+        },
+        "raw_ocr_threshold": {
+          "const": 0.0
+        },
+        "human_review_threshold": {
+          "const": 0.9
+        },
+        "model_files": {
+          "type": "array",
+          "minItems": 7,
+          "items": {
+            "$ref": "#/$defs/modelFile"
+          }
+        }
+      }
+    },
+    "textQuality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["non_whitespace_chars", "invalid_character_ratio"],
+      "properties": {
+        "non_whitespace_chars": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid_character_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "file_name", "bytes", "sha256"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "OCR_JSON",
+            "STRUCTURE_JSON",
+            "MARKDOWN",
+            "TABLE_HTML"
+          ]
+        },
+        "file_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": {
+          "const": "PENDING_HUMAN_REVIEW"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "NOTICE_NUMBER",
+              "LEGAL_DATE",
+              "AREA",
+              "JURISDICTION",
+              "TAX_RULE",
+              "LEGAL_EFFECT",
+              "SPATIAL_BOUNDARY",
+              "SOURCE_RIGHTS",
+              "LOW_CONFIDENCE",
+              "OCR_TABLE_MISMATCH",
+              "MERGED_OR_MULTILEVEL_HEADER",
+              "POSSIBLE_CROSS_PAGE_TABLE"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_number",
+        "route",
+        "image",
+        "embedded_text_quality",
+        "outputs",
+        "review",
+        "warnings"
+      ],
+      "properties": {
+        "page_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "route": {
+          "enum": [
+            "EMBEDDED_TEXT",
+            "RAPIDOCR",
+            "RAPIDOCR_TABLEFORMER"
+          ]
+        },
+        "image": {
+          "$ref": "#/$defs/file"
+        },
+        "embedded_text_quality": {
+          "$ref": "#/$defs/textQuality"
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/output"
+          }
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "warnings": {
+          "$ref": "#/$defs/warnings"
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source_rights_status"],
+      "properties": {
+        "status": {
+          "enum": [
+            "TEMPORARY_NOT_RETAINED",
+            "APPROVED_FOR_RETENTION",
+            "REJECTED_FOR_RETENTION"
+          ]
+        },
+        "source_rights_status": {
+          "enum": ["PENDING_REVIEW", "ALLOWED", "DENIED"]
+        }
+      }
+    }
+  }
+}

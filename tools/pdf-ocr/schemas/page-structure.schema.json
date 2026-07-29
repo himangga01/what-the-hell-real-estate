@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://what-the-hell-real-estate.local/schemas/page-structure-2.0.0.json",
+  "title": "PDF Page Structure Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "page_number",
+    "coordinate_space",
+    "regions",
+    "tables",
+    "raw"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "page_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "coordinate_space": {
+      "$ref": "#/$defs/coordinateSpace"
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/region"
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/table"
+      }
+    },
+    "raw": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "coordinateSpace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "width",
+        "height",
+        "render_dpi",
+        "pdf_points_per_pixel"
+      ],
+      "properties": {
+        "unit": {
+          "const": "pixel"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "render_dpi": {
+          "const": 300
+        },
+        "pdf_points_per_pixel": {
+          "const": 0.24
+        }
+      }
+    },
+    "bbox": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "bbox", "reading_order"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "reading_order": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "bbox",
+        "start_row",
+        "end_row",
+        "start_column",
+        "end_column",
+        "row_span",
+        "col_span",
+        "is_column_header",
+        "is_row_header",
+        "is_row_section",
+        "raw_ocr_comparison_status"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "start_row": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_column": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "row_span": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "col_span": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "is_column_header": {
+          "type": "boolean"
+        },
+        "is_row_header": {
+          "type": "boolean"
+        },
+        "is_row_section": {
+          "type": "boolean"
+        },
+        "raw_ocr_comparison_status": {
+          "enum": ["MATCHED", "MISMATCH", "NOT_COMPARABLE"]
+        }
+      }
+    },
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_number",
+        "bbox",
+        "num_rows",
+        "num_columns",
+        "cells",
+        "html_file"
+      ],
+      "properties": {
+        "table_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bbox": {
+          "$ref": "#/$defs/bbox"
+        },
+        "num_rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "num_columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cells": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/cell"
+          }
+        },
+        "html_file": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

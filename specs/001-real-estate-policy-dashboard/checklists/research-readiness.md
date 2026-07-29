@@ -21,7 +21,8 @@
 - [x] `source-rights.csv`에 내부 전문·공개·RAG·링크 전용·권리 상태가 분리돼 있다.
 - [ ] 원문 바이트 캡처와 SHA-256이 완료됐다.
 - [x] 투기지역 전자관보 4건의 원문 바이트·SHA-256·렌더링 검증 기록이 있다.
-- [x] `research-data/cutoff-manifest.csv`에 조사 산출물 12개의 컷오프·해시·승인 대기 상태를 기록했다.
+- [x] `research-data/cutoff-manifest.csv`에 PDF 인식 검수 보고서를 포함한 조사 산출물
+  13개의 컷오프·byte 수·SHA-256·승인 대기 상태를 기록했다.
 - [ ] 전국 지자체 필지·도면 자료가 전수 정규화됐다.
 
 ## 2. 정책 이력 담당 검수
@@ -105,6 +106,19 @@
 - [x] 성공 명령 진단 기록과 실행 중 생성한 손상 HWP의 무게시 실패 경로를 공식 도구로 확인했다.
 - [x] Windows PowerShell 5.1 단위·로컬 리디렉션 검증을 필수 CI 게이트에 연결했다.
 - [x] 전자관보 저작권정책을 확인하고 투기지역 관보 PDF 4건의 원문·해시를 불변 보존했다.
+- [x] 격리 Python 3.12, RapidOCR 3.9.2, ONNX Runtime 1.28.0, Docling 2.115.0,
+  docling-ibm-models 3.13.3과 7개 모델 artifact·11개 파일의 SHA-256 잠금으로
+  PDF 조사 도구를 구현했다.
+- [x] 원본 불변·기존 출력 거부·실패 무게시·런타임 자동 다운로드 금지·300 DPI 페이지
+  이미지·OCR JSON·구조 JSON·표 HTML·Markdown 해시·polygon·bbox·confidence·
+  행·열·병합셀·사람 검수 상태를 확인하는 자동 회귀 `508 passed, 1 skipped`를 기록했다.
+- [x] 전자관보 PDF 4건을 실제 Windows CPU에서 각각 1/1쪽 처리하고 입력·출력 해시
+  연쇄와 page gap 없음, `EMBEDDED_TEXT` 경로, 표 수 0개를 확인했다.
+- [ ] 전자관보 PDF 4건의 공고번호·날짜·면적·관할·법적 효력·공간 경계·원문 권리를
+  사용자가 원문과 대조해 모두 `HUMAN_REVIEWED`로 판정했다. 현재는 AI 시각 사전대조만
+  완료돼 `PENDING_USER_HUMAN_REVIEW`다.
+- [ ] 권리 허용 정부 PDF 중 실제 행·열 표가 있는 표본으로 TableFormer `accurate`의
+  행·열·병합셀과 핵심 셀 누락 여부를 사람이 대조했다. 현재 네 관보 표본에는 실제 표가 없다.
 - [ ] 법령 본문과 판례·첨부를 별도 권리 행으로 검수했다.
 - [ ] 공공누리 표시는 문서·첨부별로 확인했다.
 - [ ] `REVIEW_REQUIRED`, `LINK_ONLY`, `BLOCKED` 자료의 전문 공개·RAG가 비활성이다.
@@ -126,6 +140,9 @@
 3. 토지거래허가구역의 필지·도면·조건과 일부 공고번호가 남았다.
 4. 세금 카드는 조사본이며 세무 담당자의 조문·부칙 검수가 없다.
 5. 정책·세금·공간·권리 담당자의 실명 승인이 없다.
+6. T112 코드·자동 회귀·전자관보 4건의 실제 처리는 완료됐지만 사람 최종 대조와 원문
+   권리 검토가 남아 네 결과가 `PENDING_USER_HUMAN_REVIEW`다.
+7. 승인된 실제 관보 4건에는 행·열 표가 없어 실표의 행·열·병합셀 품질 인수 근거가 없다.
 
 ## 7. 최종 게이트
 
@@ -167,6 +184,8 @@ blocking_gaps:
   - remaining_immutable_source_capture_and_sha256
   - parcel_and_boundary_coverage
   - tax_statute_and_transition_review
+  - pdf_four_sample_user_human_review
+  - pdf_real_table_acceptance_coverage
 completion_rule: all_required_human_approvals_and_hashes_present
 automated_research_progress:
   molit_2024_handbook_crosscheck: complete
@@ -182,10 +201,31 @@ automated_research_progress:
   immutable_gazette_manifest: research-data/captures/manifest.csv
   immutable_gazette_manifest_sha256: 15ba1f67db608c318c8311de655d1986298bfd3720d6a4a8dee516858a649c95
   cutoff_manifest: research-data/cutoff-manifest.csv
-  cutoff_manifest_artifact_rows: 12
-  cutoff_manifest_sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
+  cutoff_manifest_artifact_rows: 13
+  cutoff_manifest_sha256: c12f095ce98252955f187e0a83979c5dfa110c43ffc12b14308743f1aed6cc14
   cutoff_manifest_approval_status: PENDING
   immutable_gazette_pages_render_reviewed: true
+  pdf_ocr_task: T112
+  pdf_ocr_implementation_status: CODE_AND_CONTRACT_TESTS_COMPLETE
+  pdf_ocr_automated_acceptance_status: PASS
+  pdf_ocr_human_acceptance_status: PENDING_USER_HUMAN_REVIEW
+  pdf_ocr_python_version: 3.12.13
+  pdf_ocr_rapidocr_version: 3.9.2
+  pdf_ocr_onnxruntime_version: 1.28.0
+  pdf_ocr_docling_version: 2.115.0
+  pdf_ocr_docling_ibm_models_version: 3.13.3
+  pdf_ocr_execution_provider: CPUExecutionProvider
+  pdf_ocr_model_lock_artifacts: 7
+  pdf_ocr_model_lock_files: 11
+  pdf_ocr_contract_and_regression_tests: 508_passed_1_skipped
+  pdf_ocr_sample_documents_processed: 4
+  pdf_ocr_sample_pages_processed: 4
+  pdf_ocr_sample_documents_pending_human_review: 4
+  pdf_ocr_actual_table_samples: 0
+  pdf_ocr_accepted_outputs: 0
+  pdf_ocr_acceptance_report: research-data/pdf-ocr-acceptance.md
+  pdf_ocr_default_retention: TEMPORARY_NOT_RETAINED
+  pdf_ocr_human_review_required: true
   rhwp_version: v0.7.18
   rhwp_archive_sha256: BD0B3280C0B87580BFC8C86AF337609ACF939C5F8F1DA6AB3EE73955064420FD
   rhwp_executable_sha256: C92492674CD9B2BDEF7B550FD24591554F75FE391F6299F943B01B7AEEF4F859

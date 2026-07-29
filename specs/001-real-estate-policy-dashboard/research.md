@@ -104,8 +104,8 @@ rights_status: ALLOWED | LINK_ONLY | REVIEW_REQUIRED | BLOCKED
 verification_status: VERIFIED | PARTIAL | PENDING_REVIEW
 cutoff_manifest:
   path: research-data/cutoff-manifest.csv
-  artifact_rows: 12
-  sha256: 6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef
+  artifact_rows: 13
+  sha256: c12f095ce98252955f187e0a83979c5dfa110c43ffc12b14308743f1aed6cc14
   approval_status: PENDING_T006
 known_gaps:
   - id: stable-gap-id
@@ -170,6 +170,46 @@ known_gaps:
 
 공식 근거: [Python 3.14 릴리스](https://www.python.org/downloads/release/python-3140/),
 [FastAPI 공식 문서](https://fastapi.tiangolo.com/)
+
+### RapidOCR·Docling 기반 PDF 인식
+
+**결정**: PDF는 pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를 300 DPI PNG로
+렌더링한다. 모든 PNG에 Docling 레이아웃 전용 패스를 먼저 적용하며, 스캔·저텍스트·
+복합 페이지는 RapidOCR·ONNX Runtime CPU로 인식하고 표 페이지는 Docling 내부
+RapidOCR와 TableFormer `accurate`로 행·열·병합셀 구조를 복원한다.
+
+**이유**:
+
+- 내장 텍스트를 우선하면 OCR 오인식과 실행 비용을 줄일 수 있다.
+- RapidOCR의 원시 polygon·bbox·confidence와 Docling의 구조 JSON·표 HTML을 분리해
+  원문 페이지와 감사 가능한 형태로 연결할 수 있다.
+- 백엔드 Python 3.14와 OCR Python 3.12를 분리하면 무거운 모델 의존성과 호환성 범위를
+  제품 API에서 격리할 수 있다.
+- 원본·페이지·모델·출력 해시와 사람 검수 상태를 함께 남겨 OCR을 추적 가능한 파생
+  증거로 제한할 수 있다.
+
+**대안**:
+
+- 모든 페이지 OCR은 단순하지만 텍스트 PDF에서도 오인식과 비용이 늘어 미채택했다.
+- RapidOCR와 img2table 조합은 가볍지만 복잡한 다단 표의 주 구조 엔진으로 사용하지
+  않고 보조 후보로 보류했다.
+- OCR 없이 육안 검수만 수행하면 대량 PDF 전수 조사와 결과 재현이 어려워 미채택했다.
+
+공식 근거: [RapidOCR 저장소](https://github.com/RapidAI/RapidOCR),
+[ONNX Runtime 문서](https://onnxruntime.ai/docs/),
+[Docling 저장소](https://github.com/docling-project/docling),
+[Docling 모델 카탈로그](https://docling-project.github.io/docling/usage/model_catalog/)
+
+**2026-07-29 구현·실행 상태**: 격리 Python 3.12 도구, 7개 모델 artifact·11개 파일의
+SHA-256 잠금, 300 DPI 렌더링, 원본·페이지·OCR JSON·구조 JSON·표 HTML·Markdown 해시,
+좌표·신뢰도·표 topology·사람 검수 상태와 fail-closed PowerShell 래퍼를 구현했다.
+자동 회귀는 `508 passed, 1 skipped`이고 전자관보 4건은 모두 종료 코드 0으로 처리됐으며
+해시 연쇄도 일치했다. 네 원본은 실제 행·열 표가 없는 1쪽 문서라 결과 표 수 0개가
+원본과 일치하지만 실표 인식 품질을 증명하지는 않는다. AI 시각 사전대조만 완료됐고
+사용자 사람 검수와 원문 권리 검토가 남아 T112는 미완료다.
+
+과거 PaddleOCR·PaddlePaddle 실행 구성은 Windows CPU `phi.dll` 접근 위반 때문에
+중단됐으며 현재 실행 구성에 포함되지 않는다.
 
 ### React 19.2, Vite 8.1, Tailwind CSS 4.3
 
@@ -281,6 +321,8 @@ PostgreSQL 클러스터에서 관리한다.
 - 시공간 데이터는 이중시간과 버전 경계를 쓴다.
 - PostgreSQL 하나에 정형·공간·검색 데이터를 통합한다.
 - MVP에서 Redis, Celery와 별도 벡터 DB를 도입하지 않는다.
+- PDF 인식은 텍스트 우선과 격리된 RapidOCR·ONNX Runtime·Docling/TableFormer
+  파이프라인을 사용한다.
 
 ### 구현 전 반드시 완료할 데이터 조사
 
@@ -290,6 +332,8 @@ PostgreSQL 클러스터에서 관리한다.
 - 취득세·재산세·종합부동산세·양도소득세의 현행 규칙 카드와 골든 사례
 - 공공누리·저작권·robots·API 약관별 원문 보존 및 RAG 색인 허용 여부
 - 주소 API의 이용조건, PNU·좌표 정확도와 장애 시 수동 확인 경로
+- 실제 표가 포함된 권리 허용 정부 PDF의 TableFormer 품질 대조와 승인 샘플 4건의
+  사용자 사람 검수
 
 ---
 
@@ -297,7 +341,8 @@ PostgreSQL 클러스터에서 관리한다.
 
 ```yaml
 research_date: 2026-07-10
-audit_updated_on: 2026-07-17
+audit_updated_on: 2026-07-28
+pdf_ocr_decision_approved_on: 2026-07-28
 row_counts:
   policy_events: 105
   policy_event_relations: 42
@@ -323,6 +368,8 @@ not_yet_complete:
   - nationwide_parcel_level_land_permit_boundaries
   - fully_reviewed_tax_rule_catalog
   - robots_and_terms_evidence_hashes
+  - rapidocr_docling_sample_human_review
+  - real_table_pdf_acceptance_coverage
 decisions:
   source_strategy: official_primary_source_first
   storage: postgresql_postgis_pgvector
@@ -331,4 +378,24 @@ decisions:
   rule_engine: deterministic_safe_dsl
   rag: citation_only_over_published_evidence
   competitor_site: ia_reference_only_no_api_or_content_copy
+  pdf_recognition:
+    tool: RapidOCR_ONNX_Runtime_Docling_TableFormer
+    rapidocr_version: 3.9.2
+    onnxruntime_version: 1.28.0
+    docling_version: 2.115.0
+    docling_ibm_models_version: 3.13.3
+    runtime: isolated_python_3_12_windows_cpu
+    routing: embedded_text_first_after_docling_layout_then_rapidocr_when_required
+    table_pipeline: docling_internal_rapidocr_tableformer_accurate
+    korean_model: korean_PP-OCRv5_rec_mobile
+    status: IMPLEMENTED_AUTOMATED_ACCEPTANCE_PASS_HUMAN_REVIEW_PENDING
+    render_dpi: 300
+    model_lock_artifacts: 7
+    locked_model_file_count: 11
+    automated_tests: 508_passed_1_skipped
+    real_sample_execution_passed: 4
+    real_sample_outputs_human_reviewed: 0
+    actual_table_samples: 0
+    acceptance_report: research-data/pdf-ocr-acceptance.md
+    blocker: USER_HUMAN_REVIEW_AND_REAL_TABLE_ACCEPTANCE_PENDING
 ```

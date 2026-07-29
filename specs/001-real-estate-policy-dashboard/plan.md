@@ -29,6 +29,7 @@ MVP는 다음 순서로 전달한다.
 | 프런트엔드 | React 19.2, Vite 8.1, Tailwind CSS 4.3 |
 | 저장소 | PostgreSQL 18, PostGIS 3.6, pgvector 0.8 계열 |
 | 검색 | PostgreSQL 전문 검색과 pgvector를 결합한 하이브리드 검색 |
+| PDF 인식 | 격리 Python 3.12, RapidOCR 3.9.2, ONNX Runtime CPU, Docling 2.115.0, TableFormer `accurate` |
 | 테스트 | pytest, pytest-asyncio, Hypothesis, Vitest, Testing Library, Playwright |
 | 계약 | OpenAPI 3.1, JSON Schema 2020-12 |
 | 대상 플랫폼 | 컨테이너 기반 Linux API와 정적 웹 앱, 최신 모바일·데스크톱 브라우저 |
@@ -112,6 +113,17 @@ flowchart LR
 - HWP 첨부는 공식 `edwardkim/rhwp` `v0.7.18` 릴리스와 `SHA256SUMS.txt`를 고정해
   임시 추출하고 입력·도구·출력 SHA-256 매니페스트를 남긴다. 권리 승인 전 원문·추출물은
   저장소나 RAG에 보존하지 않으며 HWPX 추출은 호환성 테스트 전까지 비활성화한다.
+- PDF는 pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를 300 DPI PNG로
+  렌더링한다. 모든 PNG에 Docling 레이아웃 전용 패스를 먼저 적용하며, 스캔·저텍스트·
+  복합 페이지는 RapidOCR·ONNX Runtime CPU로 인식하고 표 페이지는 Docling 내부
+  RapidOCR와 TableFormer `accurate`로 행·열·병합셀 구조를 복원한다.
+- PDF 인식은 제품 백엔드와 분리된 Python 3.12 환경에서 RapidOCR `3.9.2`,
+  ONNX Runtime `1.28.0`, Docling `2.115.0`, docling-ibm-models `3.13.3`을
+  잠그고 실행한다. 원본·페이지 이미지·모델·OCR JSON·구조 JSON·표 HTML·Markdown
+  SHA-256과 polygon·bbox·confidence·행·열·병합셀·사람 검수 상태를 매니페스트에
+  남긴다. 런타임 자동 다운로드는 금지하고 실패 시 어떤 부분 출력도 게시하지 않는다.
+- OCR 결과는 파생 증거다. 공고번호·날짜·면적·지역명은 원문과 사람이 대조하며 OCR만으로
+  정책·세금·공간 사실을 `VERIFIED`로 승격하거나 공개·RAG 색인하지 않는다.
 
 ### 2. 시공간 판정
 
@@ -247,6 +259,15 @@ frontend/
 │   └── lib/
 └── tests/
 
+tools/pdf-ocr/
+├── pyproject.toml
+├── uv.lock
+├── Dockerfile
+├── models.lock.json
+├── schemas/manifest.schema.json
+├── src/pdf_ocr/
+└── tests/
+
 infra/
 ├── docker-compose.yml
 ├── db/init/
@@ -256,6 +277,7 @@ infra/
 └── runbooks/
 
 scripts/
+├── research/
 ├── seed/
 ├── verify/
 └── release/
@@ -280,7 +302,7 @@ DB 기반 작업 상태로 충분하지 않다는 측정 결과가 나온 뒤 �
 
 | 단계 | 산출물 | 완료 게이트 |
 |---|---|---|
-| 0. 조사 | 출처 레지스트리, 10년 정책 사건 목록, 현행 스냅샷 | T001~T006 완료, 정책·세금·공간·권리 담당 승인, 컷오프 매니페스트 해시 기록 |
+| 0. 조사 | 출처 레지스트리, 10년 정책 사건 목록, 현행 스냅샷 | T001~T006·T112 완료, 정책·세금·공간·권리 담당 승인, 컷오프 매니페스트 해시 기록 |
 | 1. 기반 | DB, 수집 스냅샷, 규칙 DSL, 감사 로그 | 스키마·계약·경계 테스트 통과 |
 | 2. P1 | 현재 정책, 운영 주소 정규화와 주소별 4종 규제 판정 | 검증 주소·경계일 골든 세트와 첫 방문 사용자 90%의 3분 내 결과 확인 통과 |
 | 3. P2 | 취득·보유·양도 분석 | 세금 경계·경과규정 골든 세트 통과 |
@@ -332,7 +354,7 @@ status_values:
 delivery_order: [US1, US2, US3, US4]
 phase_dependencies:
   phase2_setup_may_run_in_parallel_with_research: true
-  phase3_shared_foundation_requires: [T001, T002, T003, T004, T005, T006]
+  phase3_shared_foundation_requires: [T001, T002, T003, T004, T005, T006, T112]
   research_gate_requires_human_roles: [policy, tax, spatial, rights]
   research_gate_requires_cutoff_manifest_hash: true
 address_resolution:
@@ -345,6 +367,32 @@ research_extraction:
   checksum_required: true
   default_retention: TEMPORARY_NOT_RETAINED
   hwpx_enabled: false
+  pdf_tool: RapidOCR_ONNX_Runtime_Docling_TableFormer
+  rapidocr_version: 3.9.2
+  onnxruntime_version: 1.28.0
+  docling_version: 2.115.0
+  docling_ibm_models_version: 3.13.3
+  isolated_python: "3.12"
+  pdf_pipeline:
+    - pypdf_embedded_text_first
+    - pymupdf_render_every_page_300_dpi
+    - docling_layout_only_every_png
+    - rapidocr_onnx_cpu_for_scanned_low_text_or_complex_pages
+    - docling_rapidocr_tableformer_accurate_for_table_pages
+  korean_recognition_model: korean_PP-OCRv5_rec_mobile
+  execution_provider: CPUExecutionProvider
+  model_lock_artifacts: 7
+  model_lock_files: 11
+  runtime_auto_download: forbidden
+  embedded_text_first: true
+  render_dpi: 300
+  human_review_required_for:
+    - notice_number
+    - legal_dates
+    - area_values
+    - jurisdiction_names
+    - table_rows_columns_and_spans
+  current_acceptance: PENDING_USER_HUMAN_REVIEW
 delivery:
   dependency_locks: [uv_lock, npm_package_lock]
   images: [non_root_backend, static_frontend]

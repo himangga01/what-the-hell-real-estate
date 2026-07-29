@@ -31,8 +31,20 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - [x] T005 [P] 원문별 전문 보존·공개·RAG 색인 허용 여부와 링크 전용 정책을 `specs/001-real-estate-policy-dashboard/research-data/source-rights.csv`에 기록한다.
 - [ ] T006 정책·세금·공간·권리 담당자가 알려진 공백, 충돌 문서와 초기 컷오프 매니페스트를 검수하고 `specs/001-real-estate-policy-dashboard/checklists/research-readiness.md`를 승인한다.
 - [x] T111 [P] HWP 첨부를 공식 `edwardkim/rhwp` `v0.7.18`과 `SHA256SUMS.txt`로 검증해 임시 text·Markdown과 입력·도구·출력 SHA-256 매니페스트를 생성하는 fail-closed 파이프라인을 `scripts/research/`에 구현하고 `THIRD_PARTY_NOTICES.md`, `specs/001-real-estate-policy-dashboard/source-register.md`와 조사 게이트에 증거를 기록한다.
+- [ ] T112 [P] PDF는 pypdf 내장 텍스트를 우선하고 PyMuPDF로 모든 페이지를 300 DPI
+  PNG로 렌더링한 뒤 Docling 레이아웃 패스를 적용한다. 스캔·저텍스트·복합 페이지는
+  격리 Python 3.12의 RapidOCR·ONNX Runtime CPU로 인식하고 표 페이지는 Docling 내부
+  RapidOCR와 TableFormer `accurate`로 처리한다. 원본·페이지·모델·OCR JSON·구조 JSON·
+  표 HTML·Markdown SHA-256, polygon·bbox·confidence·행·열·병합셀·사람 검수 상태를
+  기록하며 런타임 자동 다운로드를 금지하고 실패 시 원자 게시하지 않는 파이프라인과
+  계약·회귀 테스트를 `tools/pdf-ocr/`, `scripts/research/extract-pdf.ps1`에 구현하고
+  `THIRD_PARTY_NOTICES.md`, `specs/001-real-estate-policy-dashboard/source-register.md`,
+  `specs/001-real-estate-policy-dashboard/research-data/README.md`,
+  `specs/001-real-estate-policy-dashboard/checklists/research-readiness.md`에 기록한다.
+  실제 관보 4건의 핵심 필드는 사람이 원문과 대조해 모두 `HUMAN_REVIEWED`가 되어야 한다.
+  (FR-020, FR-035, SC-009)
 
-**2026-07-17 진행 기록**:
+**2026-07-17~2026-07-29 진행 기록**:
 
 - T001: 정책 사건 105건·사건 관계 42건으로 재정규화했다. 국토교통부 제목 색인 23건에서
   누락됐던 전매행위 제한 공고 7건을 추가하고, 2016-11-03·2017-06-19를 일반 효력일로
@@ -44,11 +56,19 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 - T003: 규제 지정 수단(공고) 45건으로 정규화하고 투기지역 관보 4건을 불변 캡처·해시·렌더링
   검증했다. 서울 현황표에서 최소 28개 묶음행, 경기 현황표에서 최소 24개 지정 수단이 현재
   데이터에 대응하지 않아 전국 완전성 열거, 연장 공고, 필지·도면·행정구역 코드가 남아 미완료다.
-- T006: 조사 산출물 12개를 `cutoff-manifest.csv`에 고정했고 매니페스트 SHA-256은
-  `6ae43212e983072dd98587699a2aee6d680b83e3fd903cde400b84d5a16821ef`다. 자동 구조 검증과
+- T006: PDF 인식 검수 보고서를 포함한 조사 산출물 13개를 byte 수·SHA-256과 함께
+  `cutoff-manifest.csv`에 고정했고 매니페스트 SHA-256은
+  `c12f095ce98252955f187e0a83979c5dfa110c43ffc12b14308743f1aed6cc14`다. 자동 구조 검증과
   해시 생성은 정책·세금·공간·권리 담당자의 실명 승인 및 승인 커밋을 대체하지 않는다.
+- T112: RapidOCR·ONNX Runtime CPU·Docling/TableFormer 파이프라인과 7개 artifact·
+  11개 모델 파일 잠금, 모든 페이지 300 DPI 렌더링, OCR·구조·표·Markdown 산출물과
+  해시 연쇄, fail-closed 원자 게시를 구현했다. 자동 회귀는 `508 passed, 1 skipped`이고
+  전자관보 4건은 각각 1/1쪽을 종료 코드 0으로 처리했으며 AI 시각 사전대조도 일치했다.
+  다만 네 원본 모두 실제 행·열 표가 없어 실표 품질을 확인하지 못했고, 핵심 필드와
+  원문 이용권한의 사용자 사람 검수가 남아 모두 `PENDING_USER_HUMAN_REVIEW`다.
+  따라서 T112는 미완료이며 결과를 완료 근거·공개 fixture·RAG로 승격하지 않는다.
 
-**게이트**: T001~T006이 모두 완료되고 정책·세금·공간·권리 담당자의 승인과 컷오프
+**게이트**: T001~T006과 T112가 모두 완료되고 정책·세금·공간·권리 담당자의 승인과 컷오프
 매니페스트 해시가 기록돼야 Phase 3을 시작한다. `PARTIAL`, `NOT_CAPTURED`,
 `TEMPORARY_NOT_RETAINED`, `PENDING_REVIEW` 자료는 공개 fixture·판정·RAG에 적재하지 않는다.
 
@@ -289,8 +309,9 @@ description: "대한민국 부동산 정책·세금 분석 대시보드 구현 �
 
 ### 단계 의존성
 
-- Phase 1의 T001~T006 완료는 Phase 3 공통 기반 시작과 모든 공개 데이터 작업을 막는 게이트다.
+- Phase 1의 T001~T006·T112 완료는 Phase 3 공통 기반 시작과 모든 공개 데이터 작업을 막는 게이트다.
 - T111은 Phase 1 HWP 증거 추출을 지원하지만 원문 권리·불변 캡처·T006 사람 승인을 완료 처리하지 않는다.
+- T112는 이후 PDF 인식이 필요한 T001·T003보다 먼저 사용할 수 있어야 하며 OCR 결과만으로 원문 권리·불변 캡처·T006 사람 승인을 완료 처리하지 않는다.
 - Phase 2 설정은 조사와 병렬 가능하지만 검증되지 않은 규칙·경계를 fixture로 만들지 않는다.
 - Phase 3 공통 기반은 T001~T006 완료 뒤에만 시작하며 모든 사용자 스토리의 선행 조건이다.
 - US1~US4는 공통 기반 후 코드 수준에서 병렬 가능하지만, 공개 전달은 US1 → US2 → US3 → US4 순이다.
@@ -348,14 +369,15 @@ US2의 세금팩은 공통 사실 모델 T055 이후 T056~T058을 병렬로 구�
 ## AI Context (English)
 
 ```yaml
-task_count: 111
+task_count: 112
 blocking_order:
   - T098_repository_hygiene
   - T111_rhwp_research_extraction
+  - T112_rapidocr_docling_pdf_research_extraction
   - T099_dependency_locks_before_T012_CI
   - phase2_setup_may_run_in_parallel_with_deep_research
-  - T001_T006_deep_research_gate
-  - shared_foundation_after_T001_T006
+  - T001_T006_T112_deep_research_gate
+  - shared_foundation_after_T001_T006_T112
   - user_stories
   - quality_and_release
 story_tasks:
@@ -363,15 +385,26 @@ story_tasks:
   US2: [T045-T063]
   US3: [T064-T074]
   US4: [T075-T087, T103-T104]
-cross_cutting_supplements: [T098-T099, T105-T110, T111]
+cross_cutting_supplements: [T098-T099, T105-T112]
 supplemental_work_packages:
   setup: T098-T099
-  research: T111
+  research: [T111, T112]
   US1: T100-T102
   US4: T103-T104
   delivery: T105-T110
 supplemental_execution: merge_into_declared_existing_phase_not_after_phase8
 tdd_required: true
+t112_status:
+  implementation: CODE_AND_CONTRACT_TESTS_COMPLETE
+  automated_acceptance: PASS
+  human_acceptance: PENDING_USER_HUMAN_REVIEW
+  tests: 508_passed_1_skipped
+  locked_model_artifacts: 7
+  locked_model_file_count: 11
+  processed_sample_documents: 4
+  human_reviewed_sample_outputs: 0
+  actual_table_samples: 0
+  acceptance_report: research-data/pdf-ocr-acceptance.md
 publication_rules:
   - no_unverified_source_or_boundary_in_public_fixtures
   - no_rule_without_official_citation_and_golden_cases
