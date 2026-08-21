@@ -2,7 +2,9 @@
 
 - **작성 기준일**: 2026-08-21
 - **기준 브랜치**: `main`
-- **기준 커밋**: `bf5c9e7` (`feat(research): add RapidOCR Docling PDF pipeline`)
+- **인수인계 갱신 전 기준 커밋**: `78db17269261c347d4440699736c4eccfbaf8be6`
+  (`docs: summarize project progress and remaining work`)
+- **다른 PC 재개 기준**: [`HANDOFF.md`](../../HANDOFF.md)가 포함된 `origin/main` 최신 커밋
 - **기준 작업표**: [`tasks.md`](./tasks.md)
 
 이 문서는 지금까지 실제로 저장소에 반영된 작업과 앞으로 진행해야 할 작업을 구분한다.
@@ -195,8 +197,9 @@ T004 세금 카드 작성과 T005 권리 정책 기록은 완료됐지만, 내�
 - 기존 테스트 수치는 당시 저장소에 기록된 과거 실행 증거다. 사용자 지침에 따라 이번
   문서 작성에서는 테스트를 새로 실행하지 않았다.
 - 기존 `temp/` OCR 실행 산출물은 임시·미승인 파생물이므로 이 문서 커밋에서 제외한다.
-- 게시 대상은 `origin/main`이며, 문서 작성 당시 원격 기본 브랜치는
-  `origin/codex/real-estate-dashboard`였다. 기본 브랜치 변경이나 PR 생성은 이 작업 범위가 아니다.
+- 게시 대상은 `origin/main`이며, 재검토 당시 원격 기본 브랜치는 여전히
+  `origin/codex/real-estate-dashboard`였다. 다른 PC에서는 `main`을 명시해 복제해야 한다.
+  기본 브랜치 변경이나 PR 생성은 이 작업 범위가 아니다.
 
 ---
 
@@ -207,7 +210,9 @@ document: project_progress_and_remaining_work
 status_date: 2026-08-21
 baseline:
   branch: main
-  commit: bf5c9e7
+  pre_handoff_commit: 78db17269261c347d4440699736c4eccfbaf8be6
+  continuation_ref: origin/main
+  handoff_document: HANDOFF.md
   remote: origin
   push_target: origin/main
   remote_default_at_write_time: origin/codex/real-estate-dashboard

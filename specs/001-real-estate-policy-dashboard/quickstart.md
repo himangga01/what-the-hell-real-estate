@@ -1,15 +1,17 @@
 # 로컬 개발·검증 빠른 시작
 
-**현재 상태**: 의존성 잠금·품질 설정·로컬 DB 정의·CI까지의 설정 골격은 구현됐다.
-아래 서버·마이그레이션·fixture·테스트 명령은 해당 구현 작업이 완료된 뒤의 목표
-실행 절차이며, 지금 저장소에 애플리케이션 코드가 이미 있다는 뜻이 아니다.
+**현재 상태**: Phase 2 설정은 완료됐고 Phase 1 조사와 사람 승인 게이트가 진행 중이다.
+HWP·PDF 조사 도구는 구현됐지만 애플리케이션 본체는 아직 없다. 아래
+서버·마이그레이션·fixture·제품 테스트 명령은 해당 구현 작업이 완료된 뒤의 목표
+실행 절차다. 다른 PC에서 재개할 때는 먼저 [`HANDOFF.md`](../../HANDOFF.md)를 따른다.
 
 ## 1. 도구 준비
 
 권장 도구:
 
 - Git
-- Python 3.14
+- 제품 백엔드용 Python 3.14
+- PDF 조사 도구용 별도 Python 3.12
 - uv
 - Node.js 24 LTS와 npm
 - Docker Desktop 또는 PostgreSQL 18 + PostGIS + pgvector
@@ -194,7 +196,11 @@ uv run --project backend --locked --no-sync python -m app.domains.rules.cli comp
 ## AI Context (English)
 
 ```yaml
-document_state: setup_scaffold_implemented_application_commands_are_future_targets
+document_state: phase_2_setup_complete_phase_1_research_in_progress_application_commands_are_future_targets
+cross_pc_handoff: ../../HANDOFF.md
+runtime_split:
+  backend_python: ">=3.14,<3.15"
+  pdf_ocr_python: ">=3.12,<3.13"
 install_policy: lockfiles_only
 local_ports:
   frontend: 5173

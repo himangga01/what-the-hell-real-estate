@@ -7,7 +7,7 @@
 
 ## 현재 상태
 
-현재 저장소는 **설정 골격 단계(Phase 2)** 다. 다음 항목은 구현되어 있다.
+현재 저장소는 **Phase 2 설정 완료·Phase 1 조사 진행 단계**다. 다음 항목은 구현되어 있다.
 
 - Python·Node 의존성 정의와 잠금 파일
 - Ruff·Pyright·ESLint·TypeScript·Prettier 설정
@@ -15,12 +15,19 @@
 - 비밀값이 없는 백엔드·프런트 환경 변수 예시
 - OpenAPI·규칙 JSON Schema 설계 계약과 Spec Kit 구현 문서
 - 저장소 위생·재현 설치 검증 스크립트와 GitHub Actions CI
+- 조사 데이터 구조와 일부 정책·세금·권리 조사 기록
+- `rhwp v0.7.18` 기반 HWP 추출 도구
+- RapidOCR·ONNX Runtime·Docling TableFormer 기반 PDF·표 추출 도구
 
 아직 애플리케이션 소스, Alembic 설정·마이그레이션, API 엔트리 포인트,
 프런트 `index.html`·`src`, 검수 fixture와 seed 모듈, 테스트 모음은 구현되지
 않았다. 따라서 현재는 대시보드나 API를 실행할 수 없고, 아래의 "구현 후 목표
 명령"도 아직 실행하면 안 된다. Spec Kit CLI는 앱 실행 필수 도구가 아니라
 명세·계획·작업 문서를 선택적으로 관리하는 개발 workflow 도구다.
+
+다른 PC에서 이어서 작업할 때는 원격 기본 브랜치가 아니라 `main`을 명시해서
+복제해야 한다. 필요한 로컬 자산과 정확한 재개 절차는 [`HANDOFF.md`](HANDOFF.md)를
+먼저 따른다.
 
 ## 지원 범위와 안전 경계
 
@@ -48,7 +55,8 @@
 | --- | --- |
 | Git | 저장소 가져오기와 변경 추적 |
 | PowerShell | 검증 스크립트 실행. Windows PowerShell 5.1 또는 호환 PowerShell |
-| Python | 3.14.x (`>=3.14,<3.15`) |
+| 제품 백엔드 Python | 3.14.x (`>=3.14,<3.15`) |
+| PDF 조사 도구 Python | 3.12.x (`>=3.12,<3.13`), 백엔드와 별도 uv 환경 |
 | uv | Python 잠금 설치와 명령 실행 |
 | Node.js | 24.x (`>=24,<25`) |
 | npm | 11 이상 |
@@ -213,6 +221,8 @@ fixture seed의 최종 CLI 계약은 T028에서 확정된다. 위 명령은 계�
 
 ## 관련 문서
 
+- 다른 PC 인수인계: [`HANDOFF.md`](HANDOFF.md)
+- 현재 진행률·남은 작업: [`specs/001-real-estate-policy-dashboard/progress.md`](specs/001-real-estate-policy-dashboard/progress.md)
 - 기능 범위: `specs/001-real-estate-policy-dashboard/spec.md`
 - 구현 설계: `specs/001-real-estate-policy-dashboard/plan.md`
 - 실행 작업: `specs/001-real-estate-policy-dashboard/tasks.md`
@@ -224,12 +234,16 @@ fixture seed의 최종 CLI 계약은 T028에서 확정된다. 위 명령은 계�
 ### Purpose and current state
 
 This repository targets a versioned, evidence-backed Korean real-estate policy and
-tax-analysis dashboard. It is currently a **Phase 2 configuration scaffold**, not a
-runnable application. Dependency manifests and locks, quality configuration, environment
-examples, a PostgreSQL/PostGIS/pgvector Compose definition, design contracts, repository
-verification scripts, and CI exist. Application source, Alembic configuration and
-migrations, the API entry point, frontend entry files, verified fixtures, seed code, and
-test suites do not exist yet.
+tax-analysis dashboard. **Phase 2 setup is complete and Phase 1 research is in progress**;
+it is not a runnable application. Dependency manifests and locks, quality configuration,
+environment examples, a PostgreSQL/PostGIS/pgvector Compose definition, design contracts,
+repository verification scripts, CI, partial research records, a pinned rhwp HWP pipeline,
+and a RapidOCR/ONNX Runtime/Docling TableFormer PDF and table pipeline exist. Application
+source, Alembic configuration and migrations, the API entry point, frontend entry files,
+verified fixtures, seed code, and product test suites do not exist yet.
+
+Cross-PC continuation must explicitly use `main` because the remote default branch pointer
+still targets an older branch. Follow `HANDOFF.md` for clone commands and local-only assets.
 
 Spec Kit is an optional documentation workflow tool. It is not an application runtime
 dependency.
@@ -246,7 +260,8 @@ cases must terminate as `UNSUPPORTED` or `REQUIRES_OFFICIAL_CHECK`.
 ### Prerequisites and locked installation
 
 - Git and Windows PowerShell 5.1 or compatible PowerShell
-- Python `>=3.14,<3.15` and uv
+- Python `>=3.14,<3.15` for the backend and a separate Python `>=3.12,<3.13`
+  environment for the PDF research tool, plus uv
 - Node.js `>=24,<25` and npm `>=11`
 - Docker Compose v2 or a separately approved Compose-compatible runtime
 - Network access for dependency installation, image builds, and remote schema validation
